@@ -4,7 +4,7 @@ A collection of projects for working with [MeshCore](https://meshcore.io) mesh r
 
 ## Projects
 
-- [meshcore-companion-mqtt](meshcore-companion-mqtt/) — Application that bridges a MeshCore companion node (via serial) to an MQTT broker, exposing channels and contacts over MQTT and allowing you to send and receive messages.
+- [meshcore-companion-mqtt](meshcore-companion-mqtt/) — Application that bridges a MeshCore companion node (via USB/serial) to an MQTT broker, exposing channels and contacts over MQTT and allowing you to send and receive messages.
 
 - [libmeshcoremqttclient](libmeshcoremqttclient/) — C++ client library for [meshcore-companion-mqtt](meshcore-companion-mqtt/) above.
 
