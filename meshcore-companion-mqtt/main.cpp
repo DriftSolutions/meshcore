@@ -9,6 +9,22 @@ CONFIG config;
 MESHCORE_STATE state;
 DSL_Mutex hMutex;
 
+int64 parse_duration_str(const string& str) {
+	if (str.length() == 0) {
+		return -1;
+	}
+
+	int64 ret = atoi64(str.c_str());
+	if (str[str.length() - 1] == 'h') {
+		ret *= 3600;
+	} else if (str[str.length() - 1] == 'd') {
+		ret *= 86400;
+	} else if (str[str.length() - 1] == 'w') {
+		ret *= (86400 * 7);
+	}
+	return ret;
+}
+
 bool LoadConfig() {
 	if (access("meshcore-companion-mqtt.conf", 0) != 0) {
 		printf("Warning: No meshcore-companion-mqtt.conf found, using defaults...\n");
@@ -25,6 +41,16 @@ bool LoadConfig() {
 	if (base != NULL) {
 		auto v = base->GetValue("Device");
 		if (v) config.meshcore.device = v->AsString();
+		v = base->GetValue("ExpireUnseenContacts");
+		if (v) config.meshcore.expireUnseenContacts = parse_duration_str(v->AsString());
+		v = base->GetValue("MaxContactsListSize");
+		if (v) config.meshcore.maxContactsListSize = (size_t)v->AsInt();
+		v = base->GetValue("DelayBetweenMessages");
+		if (v) config.meshcore.delayBetweenMessages = (uint64)v->AsInt();
+		v = base->GetValue("LogToConsole");
+		if (v) config.meshcore.log_to_console = v->AsBool();
+		v = base->GetValue("LogToFile");
+		if (v) config.meshcore.log_to_file = v->AsBool();
 	}
 
 	auto mqtt = root.GetSection("MQTT");

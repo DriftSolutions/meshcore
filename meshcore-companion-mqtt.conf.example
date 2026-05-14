@@ -1,0 +1,28 @@
+
+MeshCore {
+	# Windows serial device
+	# You can also use the device name in case the COM port number likes to change on you.
+	Device COM3:
+	# Linux serial device
+	#Device /dev/ttyUSB0
+
+	# Remove contacts not seen within this many seconds (default: 3 days)
+	ExpireUnseenContacts 3d
+	# Maximum number of contacts to keep in memory
+	MaxContactsListSize 500
+	# Delay between outgoing messages in milliseconds
+	DelayBetweenMessages 2000
+
+	LogToConsole false
+	LogToFile false
+};
+
+MQTT {
+	Host 127.0.0.1
+	Port 1883
+	#Username
+	#Password
+	TopicPrefix meshmqtt
+	LogToConsole false
+	LogToFile false
+};

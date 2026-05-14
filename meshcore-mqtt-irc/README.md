@@ -1,10 +1,10 @@
 # meshcore-mqtt-irc
 
-A virtual IRC server that bridges a [MeshCore](https://meshcore.co.uk/) mesh radio node to standard IRC clients via MQTT in conjunction with [meshcore-mqtt](https://github.com/fdlamotte/meshcore_mqtt). Connect any IRC client to it and chat on the mesh network as if it were an IRC network.
+A virtual IRC server that bridges a [MeshCore](https://meshcore.io/) mesh radio node to a standard IRC client via MQTT in conjunction with [meshcore-mqtt](https://github.com/fdlamotte/meshcore_mqtt). Connect any IRC client to it and chat on the mesh network as if it were an IRC network.
 
 ## How it works
 
-First, you need `meshcore-mqtt` up and running; then `meshcore-mqtt-irc` connects to the same MQTT broker. It subscribes to the node's topics to learn about channels, contacts, and messages, then exposes all of that over a local IRC server.
+First, you need `meshcore-companion-mqtt` (in this same repo) up and running; then `meshcore-mqtt-irc` connects to the same MQTT broker. It subscribes to the node's topics to learn about channels, contacts, and messages, then exposes all of that over a local IRC server.
 
 - MeshCore channels appear as IRC channels (e.g. `#General`, `#meshcore`)
 - MeshCore contacts appear as IRC users
@@ -93,22 +93,3 @@ If no config file is found, it will try to run on defaults.
 
 Windows: A Visual Studio 2022 solution is provided (`meshcore-mqtt-irc.sln`).
 Linux: A CMake file is included, create a `build` directory and compile as usual for CMake.
-
-## MQTT topics
-
-The server subscribes to `{TopicPrefix}/#` and uses the following topics:
-
-| Topic | Direction | Purpose |
-|-------|-----------|---------|
-| `{prefix}/self_info` | subscribe | Own node name and public key |
-| `{prefix}/contacts` | subscribe | Full contacts list |
-| `{prefix}/new_contact` | subscribe | Newly discovered contact |
-| `{prefix}/channel_info` | subscribe | Channel names and keys |
-| `{prefix}/advertisement` | subscribe | Node advertisements (updates last-seen time) |
-| `{prefix}/message/channel/{idx}` | subscribe | Incoming channel messages |
-| `{prefix}/message/direct/{...}` | subscribe | Incoming direct messages |
-| `{prefix}/command/get_self_info` | publish | Request own node info |
-| `{prefix}/command/get_contacts` | publish | Request contacts list |
-| `{prefix}/command/get_channels` | publish | Request channel list |
-| `{prefix}/command/send_chan_msg` | publish | Send a channel message |
-| `{prefix}/command/send_msg` | publish | Send a direct message |
