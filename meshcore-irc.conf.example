@@ -17,5 +17,5 @@ MQTT {
 	Port 1883
 	Username 
 	Password 
-	TopicPrefix meshcore
+	TopicPrefix meshmqtt
 };
