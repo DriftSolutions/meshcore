@@ -35,6 +35,19 @@ void add_or_update_user(_PACKET_CONTACT* c) {
 	UniValue obj(UniValue::VOBJ);
 	string pubkey = bin2hex(c->public_key, sizeof(c->public_key));
 
+	char name[MESHCORE_MAX_NICK_LEN + 1] = { 0 };
+	sstrcpy(name, trim_nulls(c->adv_name).c_str());
+	if (!IsValidUTF8(name)) {
+		char* p = (char *)FirstInvalidUTF8(name);
+		while (p != NULL && name[0]) {
+			*p = '_';
+			p = (char*)FirstInvalidUTF8(name);
+		}
+		if (name[0] == 0) {
+			return;
+		}
+	}
+
 	shared_ptr<MeshCoreUser> u;
 	bool is_new = false;
 	if (!get_user_by_pubkey(pubkey, u)) {
@@ -43,7 +56,7 @@ void add_or_update_user(_PACKET_CONTACT* c) {
 		is_new = true;
 	}
 
-	sstrcpy(u->name, trim_nulls(c->adv_name).c_str());
+	sstrcpy(u->name, name);
 	u->type = c->type;
 	u->latitude = double(Get_SLE32(c->adv_lat)) / 1000000.0f;
 	u->longitude = double(Get_SLE32(c->adv_lon)) / 1000000.0f;
