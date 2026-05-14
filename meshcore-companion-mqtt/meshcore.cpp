@@ -94,6 +94,21 @@ void queue_packet_get_message() {
 	outgoing_commands.push_back(pack);
 }
 
+void queue_packet_set_time(int64 ts) {
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, 0x06);
+	if (ts <= 0) {
+		ts = time(NULL);
+	}
+	buffer_append_int<uint32>(&buf, Get_ULE32((uint32)ts));
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+	pack->expected_responses = { PACKET_OK };
+	outgoing_commands.push_back(pack);
+}
+
 void queue_packet_get_contacts(uint32 last_mod = 0) {
 	auto pack = make_shared<MeshCoreCommand>();
 	DSL_BUFFER buf;
@@ -249,8 +264,13 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 
 	if (packet_type == PACKET_ADVERTISEMENT) {
 		if (packlen >= 33) {
+			string pubkey = bin2hex(pack + 1, 32);
+			shared_ptr<MeshCoreUser> u;
+			if (get_user_by_pubkey(pubkey, u)) {
+				u->last_seen = time(NULL);
+			}
 			UniValue obj(UniValue::VOBJ);
-			obj.pushKV("public_key", bin2hex(pack+1, 32));
+			obj.pushKV("public_key", pubkey);
 			mqtt_send(config.mqtt.topic_prefix + "/advertisement", obj, false);
 		}
 		return;
@@ -277,7 +297,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	mesh_log("\nPacket data (%u bytes):\n", packlen);
+	mesh_log("Received packet (%u bytes):\n", packlen);
 	if (config.meshcore.log_fp != NULL) {
 		PrintData(config.meshcore.log_fp, pack, packlen);
 	}
@@ -312,9 +332,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 
 	if (packet_type == PACKET_SELF_INFO && packlen > sizeof(_PACKET_SELF_INFO)) {
 		_PACKET_SELF_INFO* si = (_PACKET_SELF_INFO*)pack;
-		int x = 1;
 		string name((char*)pack + sizeof(_PACKET_SELF_INFO), packlen - sizeof(_PACKET_SELF_INFO));
-		int y = 1;
 		UniValue obj(UniValue::VOBJ);
 		obj.pushKV("name", trim_nulls(name));
 		obj.pushKV("public_key", bin2hex(si->public_key, sizeof(si->public_key)));
@@ -378,12 +396,12 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == PACKET_CONTACT_START) {
-#ifdef DEBUG
 		printf("Receiving contacts list...\n");
-#endif
 		if (packlen >= 5) {
 			uint32 count = Get_ULE32(*(uint32*)(pack + 1));
-			printf("Number of contacts: %u\n", count);
+			printf("Receiving contacts list... (%u contacts)\n", count);
+		} else {
+			printf("Receiving contacts list...\n");
 		}
 		return;
 	}
@@ -391,21 +409,11 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	if (packet_type == PACKET_CONTACT && packlen >= sizeof(_PACKET_CONTACT)) {
 		_PACKET_CONTACT* c = (_PACKET_CONTACT*)pack;
 		add_or_update_user(c);
-		/*
-		UniValue obj(UniValue::VOBJ);
-		obj.pushKV("type", c->type);
-		obj.pushKV("name", trim_nulls(c->adv_name));
-		obj.pushKV("public_key", bin2hex(c->public_key, sizeof(c->public_key)));
-		//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-		mqtt_send(mprintf("%s/channel_info/%u", config.mqtt.topic_prefix.c_str(), ci->channel_index), obj, true);
-		*/
 		return;
 	}
 
 	if (packet_type == PACKET_CONTACT_END) {
-#ifdef DEBUG
 		printf("End of contacts list.\n");
-#endif
 		if (packlen >= 5) {
 			uint32 lastmod = Get_ULE32(*(uint32*)(pack + 1));
 			time_t ts = (time_t)lastmod;
@@ -580,7 +588,7 @@ void handleIncomingPackets() {
 	}
 }
 
-void io_work() {
+void meshcore_work() {
 	static int64 lastDriverOpen = 0;
 
 	if (config.io_driver->IsOpen()) {
@@ -633,7 +641,12 @@ void io_work() {
 				buffer_append_int<uint8>(&config.sendbuf, COMPANION_OUTGOING_FRAME_START);
 				uint16 tmp = Get_ULE16((uint16)cur->data.length());
 				buffer_append_int<uint16>(&config.sendbuf, tmp);
+
 				buffer_append(&config.sendbuf, cur->data.c_str(), cur->data.length());
+				mesh_log("Writing command with %zu bytes...\n", cur->data.length());
+				if (config.meshcore.log_fp != NULL) {
+					PrintData(config.meshcore.log_fp, (const uint8 *)cur->data.c_str(), cur->data.length());
+				}
 			}
 		} else if (current_outgoing_command) {
 			auto& cur = current_outgoing_command;
@@ -647,10 +660,6 @@ void io_work() {
 		if (config.sendbuf.len > 0) {
 			int n = config.io_driver->Write(config.sendbuf.udata, (int)config.sendbuf.len);
 			if (n > 0) {
-				mesh_log("Wrote %d bytes...\n", n);
-				if (config.meshcore.log_fp != NULL) {
-					PrintData(config.meshcore.log_fp, config.sendbuf.udata, n);
-				}
 				buffer_remove_front(&config.sendbuf, n);
 			} else if (n < 0) {
 				printf("Error writing to I/O driver!\n");
@@ -678,6 +687,7 @@ void io_work() {
 			if (config.io_driver->Open(config.meshcore.device)) {
 				state.reset();
 				queue_packet_app_start();
+				queue_packet_set_time(0);
 				queue_packet_device_query();
 				queue_packets_get_channels();
 				update_contacts(true);

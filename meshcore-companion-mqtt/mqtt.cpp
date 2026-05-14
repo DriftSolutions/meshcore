@@ -40,20 +40,6 @@ void mqtt_log(const char* fmt, ...) {
 	va_end(va);
 }
 
-void mosquitto_disconnect() {
-	if (config.mqtt.mosq) {
-		//if (config.mqtt.connected) {
-			mosquitto_disconnect(config.mqtt.mosq);
-		//}
-		if (config.mqtt.thread_running) {
-			mosquitto_loop_stop(config.mqtt.mosq, false);
-		}
-		mosquitto_destroy(config.mqtt.mosq);
-		config.mqtt.mosq = NULL;
-		config.mqtt.thread_running = config.mqtt.connected = false;
-	}
-}
-
 static void on_mqtt_connect(struct mosquitto* mosq, void* userdata, int rc) {
 	if (rc != 0) {
 		printf("[mqtt] Error connecting to MQTT (rc=%d)\n", rc);
@@ -77,16 +63,6 @@ static void on_mqtt_message(struct mosquitto* mosq, void* userdata, const struct
 	if (!msg->payload || msg->payloadlen <= 0) { return; }
 
 	static const string prefix_commands = config.mqtt.topic_prefix + "/command/";
-	/*
-	static const string prefix_advertisement = config.mqtt.topic_prefix + "/advertisement";
-	static const string prefix_self = config.mqtt.topic_prefix + "/self_info";
-	static const string prefix_chan_info = config.mqtt.topic_prefix + "/channel_info";
-	static const string prefix_chan = config.mqtt.topic_prefix + "/message/channel/";
-	static const string prefix_dir = config.mqtt.topic_prefix + "/message/direct/";
-	static const string prefix_contacts = config.mqtt.topic_prefix + "/contacts";
-	static const string prefix_new_contact = config.mqtt.topic_prefix + "/new_contact";
-	*/
-
 	const char* topic = msg->topic;
 
 	if (config.mqtt.log_fp || config.mqtt.log_to_console) {
@@ -111,71 +87,64 @@ static void on_mqtt_message(struct mosquitto* mosq, void* userdata, const struct
 	}
 }
 
-void mosquitto_work() {
-	static time_t nextConnectAttempt = 0;
+bool mqtt_connect() {
+	char client_id[64];
+	snprintf(client_id, sizeof(client_id), "meshmqtt-%d", (int)time(NULL));
 
-	if (config.mqtt.mosq == NULL && time(NULL) >= nextConnectAttempt) {
-		char client_id[64];
-		snprintf(client_id, sizeof(client_id), "meshmqtt-%d", (int)time(NULL));
-
-		struct mosquitto* mosq = mosquitto_new(client_id, true, NULL);
-		if (mosq == NULL) {
-			printf("[mqtt] Failed to create mosquitto client\n");
-			return;
-		}
-
-		nextConnectAttempt = time(NULL) + 30;
-		mosquitto_reconnect_delay_set(mosq, 1, 30, true);
-		mosquitto_connect_callback_set(mosq, on_mqtt_connect);
-		mosquitto_disconnect_callback_set(mosq, on_mqtt_disconnect);
-		mosquitto_message_callback_set(mosq, on_mqtt_message);
-
-		if (!config.mqtt.username.empty()) {
-			mosquitto_username_pw_set(mosq, config.mqtt.username.c_str(), config.mqtt.password.empty() ? NULL : config.mqtt.password.c_str());
-		}
-
-		printf("[mqtt] Connecting to %s:%d...\n", config.mqtt.host.c_str(), config.mqtt.port);
-
-		int rc = mosquitto_connect_async(mosq, config.mqtt.host.c_str(), config.mqtt.port, 60);
-		if (rc != MOSQ_ERR_SUCCESS) {
-#ifndef WIN32
-			printf("[mqtt] Failed to connect to %s:%d: %s\n", config.mqtt.host.c_str(), config.mqtt.port, mosquitto_strerror(rc));
-#else
-			printf("[mqtt] Failed to connect to %s:%d!\n", config.mqtt.host.c_str(), config.mqtt.port);
-#endif
-			mosquitto_destroy(mosq);
-			return;
-		}
-
-		rc = mosquitto_loop_start(mosq);
-		if (rc != MOSQ_ERR_SUCCESS) {
-#ifndef WIN32
-			printf("[mqtt] Failed to start network loop: %s\n", mosquitto_strerror(rc));
-#else
-			printf("[mqtt] Failed to start network loop!\n");
-#endif
-			mosquitto_destroy(mosq);
-			return;
-		}
-
-		config.mqtt.thread_running = true;
-		config.mqtt.mosq = mosq;
+	struct mosquitto* mosq = mosquitto_new(client_id, true, NULL);
+	if (mosq == NULL) {
+		printf("[mqtt] Failed to create mosquitto client\n");
+		return false;
 	}
 
-	/*
+	mosquitto_reconnect_delay_set(mosq, 1, 30, true);
+	mosquitto_connect_callback_set(mosq, on_mqtt_connect);
+	mosquitto_disconnect_callback_set(mosq, on_mqtt_disconnect);
+	mosquitto_message_callback_set(mosq, on_mqtt_message);
+
+	if (!config.mqtt.username.empty()) {
+		mosquitto_username_pw_set(mosq, config.mqtt.username.c_str(), config.mqtt.password.empty() ? NULL : config.mqtt.password.c_str());
+	}
+
+	printf("[mqtt] Connecting to %s:%d...\n", config.mqtt.host.c_str(), config.mqtt.port);
+
+	int rc = mosquitto_connect_async(mosq, config.mqtt.host.c_str(), config.mqtt.port, 60);
+	if (rc != MOSQ_ERR_SUCCESS) {
+#ifndef WIN32
+		printf("[mqtt] Failed to connect to %s:%d: %s\n", config.mqtt.host.c_str(), config.mqtt.port, mosquitto_strerror(rc));
+#else
+		printf("[mqtt] Failed to connect to %s:%d!\n", config.mqtt.host.c_str(), config.mqtt.port);
+#endif
+		mosquitto_destroy(mosq);
+		return false;
+	}
+
+	rc = mosquitto_loop_start(mosq);
+	if (rc != MOSQ_ERR_SUCCESS) {
+#ifndef WIN32
+		printf("[mqtt] Failed to start network loop: %s\n", mosquitto_strerror(rc));
+#else
+		printf("[mqtt] Failed to start network loop!\n");
+#endif
+		mosquitto_destroy(mosq);
+		return false;
+	}
+
+	config.mqtt.thread_running = true;
+	config.mqtt.mosq = mosq;
+	return true;
+}
+
+void mqtt_disconnect() {
 	if (config.mqtt.mosq) {
-		int rc = mosquitto_loop(config.mqtt.mosq, 0, 1);
-		if (rc != MOSQ_ERR_SUCCESS && rc != MOSQ_ERR_NO_CONN) {
-#ifndef WIN32
-			printf("[mqtt] MQTT loop error: %s � reconnecting in 30s\n", mosquitto_strerror(rc));
-#else
-			printf("[mqtt] MQTT loop error: reconnecting in 30s\n");
-#endif
-			mosquitto_disconnect();
-			nextConnectAttempt = time(NULL) + 30;
+		mosquitto_disconnect(config.mqtt.mosq);
+		if (config.mqtt.thread_running) {
+			mosquitto_loop_stop(config.mqtt.mosq, false);
 		}
+		mosquitto_destroy(config.mqtt.mosq);
+		config.mqtt.mosq = NULL;
+		config.mqtt.thread_running = config.mqtt.connected = false;
 	}
-	*/
 }
 
 bool mqtt_send(const string& topic, const string& s, bool retain) {
@@ -183,30 +152,24 @@ bool mqtt_send(const string& topic, const string& s, bool retain) {
 		return false;
 	}
 
-	bool ret = false;
-
 	int rc;
 	if ((rc = mosquitto_publish(config.mqtt.mosq, NULL, topic.c_str(), (int)s.size(), s.c_str(), 0, retain)) == MOSQ_ERR_SUCCESS) {
 		mqtt_log("-> %s: %s\n", topic.c_str(), s.c_str());
-		ret = true;
-	} else {
-#ifndef WIN32
-		printf("[mqtt] Error sending message to MQTT: %s (%d)\n", mosquitto_strerror(rc), rc);
-#else
-		printf("[mqtt] Error sending message to MQTT! (error: %d)\n", rc);
-#endif
-		printf("[mqtt] Payload was to %s: %s\n", topic.c_str(), s.c_str());
+		return true;
 	}
-	return ret;
+
+#ifndef WIN32
+	printf("[mqtt] Error sending message to MQTT: %s (%d)\n", mosquitto_strerror(rc), rc);
+#else
+	printf("[mqtt] Error sending message to MQTT! (error: %d)\n", rc);
+#endif
+	printf("[mqtt] Payload was to %s: %s\n", topic.c_str(), s.c_str());
+
+	return false;
 }
 
 bool mqtt_send(const string& topic, const UniValue& obj, bool retain) {
-	if (config.mqtt.mosq == NULL) {
-		return false;
-	}
-
 	assert(obj.isObject());
-
 	return mqtt_send(topic, obj.write(), retain);
 }
 

@@ -255,17 +255,14 @@ struct MESHCORE_STATE {
 };
 extern MESHCORE_STATE state;
 
-void mosquitto_disconnect();
-
-void io_work();
+void meshcore_work();
 void handle_incoming_commands();
-void mosquitto_work();
+bool mqtt_connect();
+void mqtt_disconnect();
 bool mqtt_send(const string& topic, const string& s, bool retain);
 bool mqtt_send(const string& topic, const UniValue& obj, bool retain);
 bool mqtt_send_self_info();
 bool mqtt_send_device_info();
-//bool send_meshcore_msg_chan(int idx, const char* str, int txt_type);
-//bool send_meshcore_msg_dm(const char* nick, const char* pubkey, const char* str, int txt_type);
 
 string trim_nulls(const string& str);
 string trim_nulls(const char* str, size_t len);
@@ -284,11 +281,13 @@ bool mqtt_send_new_contact(shared_ptr<MeshCoreUser>& u);
 
 void queue_packet_app_start();
 void queue_packet_device_query();
+void queue_packet_set_time(int64 ts = 0); // if ts <= 0 then we'll use time(NULL)
 void queue_packet_get_channel_info(uint8 index);
 void queue_packets_get_channels();
 void queue_packet_send_channel_msg(uint8 channel_idx, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& str, uint8 attempt, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 bool is_valid_destination(const string& destination);
 void update_contacts(bool force_get_all);
+
 
 #pragma once

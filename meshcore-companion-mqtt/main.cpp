@@ -52,7 +52,8 @@ void do_shutdown() {
 	state.chans.clear();
 	state.users.clear();
 
-	mosquitto_disconnect();
+	mqtt_disconnect();
+	mosquitto_lib_cleanup();
 
 	if (config.mqtt.log_fp != NULL) {
 		fclose(config.mqtt.log_fp);
@@ -63,8 +64,6 @@ void do_shutdown() {
 		printf("Closing I/O driver...\n");
 		config.io_driver.reset();
 	}
-
-	mosquitto_lib_cleanup();
 
 	if (config.recvbuf.data) {
 		buffer_free(&config.recvbuf);
@@ -130,6 +129,10 @@ int main(int argc, const char* argv[]) {
 	buffer_init(&config.recvbuf);
 	buffer_init(&config.sendbuf);
 
+	if (!mqtt_connect()) {
+		exit(1);
+	}
+
 #if defined(WIN32)
 	SetConsoleTitle("meshcore-companion-mqtt/" PLATFORM "");
 	SetProcessShutdownParameters(0x100, SHUTDOWN_NORETRY);
@@ -148,9 +151,8 @@ int main(int argc, const char* argv[]) {
 	int64 lastContactsMaintenance = time(NULL);
 
 	while (!config.shutdown_now) {
-		io_work();
+		meshcore_work();
 		handle_incoming_commands();
-		mosquitto_work();
 
 		if (time(NULL) - lastContactsMaintenance >= 3600) {
 			// just do this hourly

@@ -135,7 +135,7 @@
     <ClCompile Include="incoming_commands.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mqtt.cpp" />
-    <ClCompile Include="io.cpp" />
+    <ClCompile Include="meshcore.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="meshcore_protocol.h" />
