@@ -1,0 +1,21 @@
+
+IRC {
+	ServerName virtual.meshcore.irc
+	NetworkName MeshCore IRC Server
+	BindIP 0.0.0.0
+	Port 6667
+
+	AutoVoiceIdleUsers true
+
+	IdleUsersAfter 2h
+	PartUsersAfter 24h
+	ExpireUsersAfter 3d
+};
+
+MQTT {
+	Host 127.0.0.1
+	Port 1883
+	Username 
+	Password 
+	TopicPrefix meshcore
+};

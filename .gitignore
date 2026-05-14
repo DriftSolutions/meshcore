@@ -1,3 +1,10 @@
+.svn/
+.vs/
+Debug/
+Release/
+Output/
+enc_temp_folder/
+
 # Prerequisites
 *.d
 
