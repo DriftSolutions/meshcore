@@ -1,6 +1,6 @@
 # meshcore-mqtt-irc
 
-A virtual IRC server that bridges a [MeshCore](https://meshcore.io/) mesh radio node to a standard IRC client via MQTT in conjunction with [meshcore-mqtt](https://github.com/fdlamotte/meshcore_mqtt). Connect any IRC client to it and chat on the mesh network as if it were an IRC network.
+A virtual IRC server that bridges a [MeshCore](https://meshcore.io/) mesh radio node to a standard IRC client via MQTT in conjunction with `meshcore-companion-mqtt` (in this same repo.) Connect any IRC client to it and chat on the mesh network as if it were an IRC network.
 
 ## How it works
 
@@ -49,6 +49,7 @@ This is a partial IRC implementation. The following commands are supported:
 | `PART #channel` | **Not supported** — channel membership is determined by the MeshCore node config, not the IRC client |
 | `PRIVMSG #channel msg` | Sends a message to a MeshCore channel |
 | `PRIVMSG nick msg` | Sends a direct message to a MeshCore contact (requires their public key to be known); nick can also be a full hostmask |
+| CTCP PING | Sends a MeshCore status request to a MeshCore contact (requires their public key to be known); nick can also be a full hostmask |
 | `NOTICE #channel msg` | Sends a NOTICE to a channel; transmitted on the mesh with a special prefix |
 | `NOTICE nick msg` | Sends a NOTICE to a contact; nick can also be a full hostmask |
 | `NAMES [#channel]` | Lists users in a channel (or all channels) |
