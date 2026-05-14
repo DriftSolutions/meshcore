@@ -471,6 +471,10 @@ bool MeshCore_MQTT_Client::SendChannelMsg(int idx, const string& str, int txt_ty
 	if (!connected || str.empty() || idx < 0 || idx > MESHCORE_HIGHEST_CHANNEL) {
 		return false;
 	}
+	if (idx == 0) {
+		printf("Error: Attempted to send to channel 0!\n");
+		return false;
+	}
 
 	string topic = string(topic_prefix) + "/command/send_channel_msg";
 
