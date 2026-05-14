@@ -26,7 +26,7 @@ void MeshCoreChannel::ToUniValue(UniValue& obj) {
 	obj.clear();
 	obj.setObject();
 	
-	obj.pushKV("channel_idx", channel_index);
+	obj.pushKV("channel_index", channel_index);
 	obj.pushKV("name", name);
 	obj.pushKV("secret", secret);
 }

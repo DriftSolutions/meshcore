@@ -159,7 +159,7 @@ void MeshCore_MQTT_Client::_handle_self_info(const UniValue& payload) {
 }
 
 void MeshCore_MQTT_Client::_handle_chan_info(const UniValue& payload) {
-	int idx = (payload.exists("channel_idx") && payload["channel_idx"].isNum()) ? payload["channel_idx"].get_int() : -1;
+	int idx = (payload.exists("channel_index") && payload["channel_index"].isNum()) ? payload["channel_index"].get_int() : -1;
 	if (idx < 0 || idx > MESHCORE_HIGHEST_CHANNEL) {
 		return;
 	}
@@ -266,7 +266,7 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 			return;
 		}
 
-		int channel_idx = payload.exists("channel") && payload["channel"].isNum() ? payload["channel"].get_int() : -1;
+		int channel_idx = payload.exists("channel_index") && payload["channel_index"].isNum() ? payload["channel_index"].get_int() : -1;
 		int txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? payload["txt_type"].get_int() : 0;
 		string text = payload.exists("message") && payload["message"].isStr() ? payload["message"].get_str() : "";
 
@@ -334,7 +334,7 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		string from = payload.exists("from") && payload["from"].isStr() ? payload["from"].get_str() : "";
 		string msg_text = payload.exists("message") && payload["message"].isStr() ? payload["message"].get_str() : "";
 
-		int channel_idx = payload.exists("channel_idx") && payload["channel_idx"].isNum() ? payload["channel_idx"].get_int() : 0;
+		int channel_idx = payload.exists("channel_index") && payload["channel_index"].isNum() ? payload["channel_index"].get_int() : 0;
 		int txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? payload["txt_type"].get_int() : 0;
 		int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
 
@@ -475,7 +475,7 @@ bool MeshCore_MQTT_Client::SendChannelMsg(int idx, const string& str, int txt_ty
 	string topic = string(topic_prefix) + "/command/send_channel_msg";
 
 	UniValue payload(UniValue::VOBJ);
-	payload.pushKV("channel", idx);
+	payload.pushKV("channel_index", idx);
 	payload.pushKV("txt_type", txt_type);
 	payload.pushKV("lib_uniq_id", uniq_id);
 

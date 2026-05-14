@@ -126,7 +126,7 @@ Published for each channel (index 0–39) when channel info is received.
 
 ```json
 {
-  "channel_idx": 0,
+  "channel_index": 0,
   "name": "General",
   "secret": "0011223344556677..."
 }
@@ -228,10 +228,10 @@ Returns info for a single channel. `channel` is required and must be 0–39. If 
 
 ```
 Topic:   meshmqtt/command/get_channel
-Payload: { "channel": 0 }
+Payload: { "channel_index": 0 }
 
 # Force a fresh fetch from the device:
-Payload: { "channel": 0, "force_refresh": true }
+Payload: { "channel_index": 0, "force_refresh": true }
 ```
 
 ### `send_channel_msg`
@@ -240,7 +240,7 @@ Sends a text message to a channel. `channel` must be 0–39 and `message` must b
 
 ```
 Topic:   meshmqtt/command/send_channel_msg
-Payload: { "channel": 0, "message": "Hello channel!" }
+Payload: { "channel_index": 0, "message": "Hello channel!" }
 ```
 
 Failed sends are automatically retried up to 3 times.

@@ -49,8 +49,8 @@ void handle_incoming_commands() {
 	}
 	
 	if (cmd->cmd == "get_channel") {
-		if (cmd->parms.exists("channel") && cmd->parms["channel"].isNum()) {
-			int ind = cmd->parms["channel"].get_int();
+		if (cmd->parms.exists("channel_index") && cmd->parms["channel_index"].isNum()) {
+			int ind = cmd->parms["channel_index"].get_int();
 			if (ind >= 0 && ind <= MESHCORE_HIGHEST_CHANNEL) {
 				bool force = (cmd->parms.exists("force_refresh") && cmd->parms["force_refresh"].isBool() && cmd->parms["force_refresh"].getBool());
 				if (force || state.chans.find(ind) == state.chans.end()) {
@@ -64,8 +64,8 @@ void handle_incoming_commands() {
 	}
 	
 	if (cmd->cmd == "send_channel_msg") {
-		if (cmd->parms.exists("channel") && cmd->parms["channel"].isNum() && cmd->parms.exists("message") && cmd->parms["message"].isStr()) {
-			int channel_idx = cmd->parms["channel"].get_int();
+		if (cmd->parms.exists("channel_index") && cmd->parms["channel_index"].isNum() && cmd->parms.exists("message") && cmd->parms["message"].isStr()) {
+			int channel_idx = cmd->parms["channel_index"].get_int();
 			string msg = cmd->parms["message"].get_str();
 			if (channel_idx >= 0 && channel_idx <= MESHCORE_HIGHEST_CHANNEL && !msg.empty()) {
 				queue_packet_send_channel_msg(channel_idx, msg);
