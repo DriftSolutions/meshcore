@@ -86,7 +86,7 @@ bool IO_Driver_Serial::Open(const string& devname) {
             } else {
                 printf("\t%s: %s\n", p.first.c_str(), p.second.c_str());
             }
-            if (!stricmp(devname.c_str(), p.first.c_str()) || !stricmp(devname.c_str(), p.second.c_str())) {
+            if (!strnicmp(devname.c_str(), p.first.c_str(), devname.length()) || !strnicmp(devname.c_str(), p.second.c_str(), devname.length())) {
                 device = p.first;
                 printf("Found port '%s' for '%s'\n", device.c_str(), devname.c_str());
                 break;

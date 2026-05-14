@@ -201,7 +201,7 @@ void MeshCore_MQTT_Client::cbChannelMessage(int channel_idx, const string& from,
 		return;
 	}
 
-	if (!strnicmp(text, NOTICE_PREFIX, NOTICE_PREFIX_LEN)) {
+	if (!strnicmp(text, (const char *)NOTICE_PREFIX, NOTICE_PREFIX_LEN)) {
 		// is a NOTICE
 		txt_type = 3;
 		text += NOTICE_PREFIX_LEN;
@@ -221,7 +221,7 @@ void MeshCore_MQTT_Client::cbDirectMessage(const string& pubkey_prefix, const ch
 	}
 	*/
 
-	if (!strnicmp(text, NOTICE_PREFIX, NOTICE_PREFIX_LEN)) {
+	if (!strnicmp(text, (const char*)NOTICE_PREFIX, NOTICE_PREFIX_LEN)) {
 		// is a NOTICE
 		txt_type = 3;
 		text += NOTICE_PREFIX_LEN;
