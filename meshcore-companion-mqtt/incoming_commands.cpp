@@ -82,7 +82,7 @@ void handle_incoming_commands() {
 			string msg = cmd->parms["message"].get_str();
 			if (!destination.empty() && !msg.empty()) {
 				if (is_valid_destination(destination)) {
-					MESHCORE_TEXT_TYPES txt_type = (cmd->parms.exists("txt_type") && cmd->parms["txt_type"].isNum()) ? (MESHCORE_TEXT_TYPES)cmd->parms["txt_type"].get_int() : TXT_TYPE_PLAIN;
+					MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN;// (cmd->parms.exists("txt_type") && cmd->parms["txt_type"].isNum()) ? (MESHCORE_TEXT_TYPES)cmd->parms["txt_type"].get_int() : TXT_TYPE_PLAIN;
 					queue_packet_send_direct_msg(destination, msg, 0, txt_type);
 				} else {
 					printf("Error in send_direct_msg: invalid destination, must be a pubkey or pubkey prefix!\n");
