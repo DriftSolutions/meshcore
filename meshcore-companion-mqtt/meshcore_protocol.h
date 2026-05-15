@@ -1,4 +1,4 @@
-/*
+ï»¿/*
  * Copyright (c) 2026, Drift Solutions
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -6,67 +6,66 @@
 #ifndef MESHCORE_PROTOCOL_H
 #define MESHCORE_PROTOCOL_H
 
-/*
-APP_START = 1
-SEND_TXT_MSG = 2
-SEND_CHANNEL_TXT_MSG = 3
-GET_CONTACTS = 4 # with optional 'since' (for efficient sync)
-GET_DEVICE_TIME = 5
-SET_DEVICE_TIME = 6
-SEND_SELF_ADVERT = 7
-SET_ADVERT_NAME = 8
-ADD_UPDATE_CONTACT = 9
-SYNC_NEXT_MESSAGE = 10
-SET_RADIO_PARAMS = 11
-SET_RADIO_TX_POWER = 12
-RESET_PATH = 13
-SET_ADVERT_LATLON = 14
-REMOVE_CONTACT = 15
-SHARE_CONTACT = 16
-EXPORT_CONTACT = 17
-IMPORT_CONTACT = 18
-REBOOT = 19
-GET_BATT_AND_STORAGE = 20   # was CMD_GET_BATTERY_VOLTAGE
-SET_TUNING_PARAMS = 21
-DEVICE_QEURY = 22
-EXPORT_PRIVATE_KEY = 23
-IMPORT_PRIVATE_KEY = 24
-SEND_RAW_DATA = 25
-SEND_LOGIN = 26
-SEND_STATUS_REQ = 27
-HAS_CONNECTION = 28
-LOGOUT = 29 # 'Disconnect'
-GET_CONTACT_BY_KEY = 30
-GET_CHANNEL = 31
-SET_CHANNEL = 32
-SIGN_START = 33
-SIGN_DATA = 34
-SIGN_FINISH = 35
-SEND_TRACE_PATH = 36
-SET_DEVICE_PIN = 37
-SET_OTHER_PARAMS = 38
-SEND_TELEMETRY_REQ = 39  # can deprecate this
-GET_CUSTOM_VARS = 40
-SET_CUSTOM_VAR = 41
-GET_ADVERT_PATH = 42
-GET_TUNING_PARAMS = 43
-# NOTE: CMD range 44..49 parked, potentially for WiFi operations
-BINARY_REQ = 50
-FACTORY_RESET = 51
-PATH_DISCOVERY = 52
-SET_FLOOD_SCOPE = 54
-SEND_CONTROL_DATA = 55
-SEND_ANON_REQ = 57
-SET_AUTOADD_CONFIG = 58
-GET_AUTOADD_CONFIG = 59
-GET_ALLOWED_REPEAT_FREQ = 60
-GET_STATS = 56  # R04: CMD_GET_STATS — used by get_stats_core / radio / packets
-SET_PATH_HASH_MODE = 61
-SET_DEFAULT_FLOOD_SCOPE = 63
-GET_DEFAULT_FLOOD_SCOPE = 64
-*/
+// Command codes
+#define CMD_APP_START                   0x01
+#define CMD_SEND_TXT_MSG                0x02
+#define CMD_SEND_CHANNEL_TXT_MSG        0x03
+#define CMD_GET_CONTACTS                0x04
+#define CMD_GET_DEVICE_TIME             0x05
+#define CMD_SET_DEVICE_TIME             0x06
+#define CMD_SEND_SELF_ADVERT            0x07
+#define CMD_SET_ADVERT_NAME             0x08
+#define CMD_ADD_UPDATE_CONTACT          0x09
+#define CMD_SYNC_NEXT_MESSAGE           0x0A
+#define CMD_SET_RADIO_PARAMS            0x0B
+#define CMD_SET_RADIO_TX_POWER          0x0C
+#define CMD_RESET_PATH                  0x0D
+#define CMD_SET_ADVERT_LATLON           0x0E
+#define CMD_REMOVE_CONTACT              0x0F
+#define CMD_SHARE_CONTACT               0x10
+#define CMD_EXPORT_CONTACT              0x11
+#define CMD_IMPORT_CONTACT              0x12
+#define CMD_REBOOT                      0x13
+#define CMD_GET_BATT_AND_STORAGE        0x14
+#define CMD_SET_TUNING_PARAMS           0x15
+#define CMD_DEVICE_QEURY                0x16
+#define CMD_EXPORT_PRIVATE_KEY          0x17
+#define CMD_IMPORT_PRIVATE_KEY          0x18
+#define CMD_SEND_RAW_DATA               0x19
+#define CMD_SEND_LOGIN                  0x1A
+#define CMD_SEND_STATUS_REQ             0x1B
+#define CMD_HAS_CONNECTION              0x1C
+#define CMD_LOGOUT                      0x1D  // 'Disconnect'
+#define CMD_GET_CONTACT_BY_KEY          0x1E
+#define CMD_GET_CHANNEL                 0x1F
+#define CMD_SET_CHANNEL                 0x20
+#define CMD_SIGN_START                  0x21
+#define CMD_SIGN_DATA                   0x22
+#define CMD_SIGN_FINISH                 0x23
+#define CMD_SEND_TRACE_PATH             0x24
+#define CMD_SET_DEVICE_PIN              0x25
+#define CMD_SET_OTHER_PARAMS            0x26
+#define CMD_SEND_TELEMETRY_REQ          0x27  // can deprecate this
+#define CMD_GET_CUSTOM_VARS             0x28
+#define CMD_SET_CUSTOM_VAR              0x29
+#define CMD_GET_ADVERT_PATH             0x2A
+#define CMD_GET_TUNING_PARAMS           0x2B
+// NOTE: CMD range 0x2C..0x31 parked, potentially for WiFi operations
+#define CMD_BINARY_REQ                  0x32
+#define CMD_FACTORY_RESET               0x33
+#define CMD_PATH_DISCOVERY              0x34
+#define CMD_SET_FLOOD_SCOPE             0x36
+#define CMD_SEND_CONTROL_DATA           0x37
+#define CMD_SEND_ANON_REQ               0x39
+#define CMD_SET_AUTOADD_CONFIG          0x3A
+#define CMD_GET_AUTOADD_CONFIG          0x3B
+#define CMD_GET_ALLOWED_REPEAT_FREQ     0x3C
+#define CMD_GET_STATS                   0x38
+#define CMD_SET_PATH_HASH_MODE          0x3D
+#define CMD_SET_DEFAULT_FLOOD_SCOPE     0x3F
+#define CMD_GET_DEFAULT_FLOOD_SCOPE     0x40
 
-// Packet Types - https://docs.meshcore.io/companion_protocol/#response-parsing
+// Response codes - https://docs.meshcore.io/companion_protocol/#response-parsing
 #define PACKET_OK                   0x00
 #define PACKET_ERROR                0x01
 #define PACKET_CONTACT_START        0x02
