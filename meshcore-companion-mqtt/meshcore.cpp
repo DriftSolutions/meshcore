@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026, Drift Solutions
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -69,7 +69,7 @@ void queue_packet_app_start() {
 	pack->data.assign((char *)&p, sizeof(p));
 	//pack->data.append("meshcore-companion-mqtt");
 	pack->data.append("mccli");
-	pack->expected_responses = { PACKET_SELF_INFO };
+	pack->expected_responses = { RESPONSE_CODE_SELF_INFO };
 	//pack->is_critical_command = true;
 	outgoing_commands.push_back(pack);
 }
@@ -77,7 +77,7 @@ void queue_packet_app_start() {
 void queue_packet_device_query() {
 	auto pack = make_shared<MeshCoreCommand>();
 	pack->data.assign("\x16\x03", 2);
-	pack->expected_responses = { PACKET_DEVICE_INFO };
+	pack->expected_responses = { RESPONSE_CODE_DEVICE_INFO };
 	//pack->is_critical_command = true;
 	outgoing_commands.push_back(pack);
 }
@@ -85,7 +85,7 @@ void queue_packet_device_query() {
 void queue_packet_battery_info() {
 	auto pack = make_shared<MeshCoreCommand>();
 	pack->data.assign("\x14", 1);
-	pack->expected_responses = { PACKET_BATTERY };
+	pack->expected_responses = { RESPONSE_CODE_BATTERY };
 	//pack->is_critical_command = true;
 	outgoing_commands.push_back(pack);
 }
@@ -94,7 +94,7 @@ void queue_packet_get_channel_info(uint8 index) {
 	auto pack = make_shared<MeshCoreCommand>();
 	pack->data.assign(1, '\x1F');
 	pack->data.append(1, (char)index);
-	pack->expected_responses = { PACKET_CHANNEL_INFO };
+	pack->expected_responses = { RESPONSE_CODE_CHANNEL_INFO };
 	outgoing_commands.push_back(pack);
 }
 
@@ -107,7 +107,7 @@ void queue_packets_get_channels() {
 void queue_packet_get_message() {
 	auto pack = make_shared<MeshCoreCommand>();
 	pack->data.assign(1, '\x0A');
-	pack->expected_responses = { PACKET_CHANNEL_MSG_RECV, PACKET_CHANNEL_MSG_RECV_V3, PACKET_CONTACT_MSG_RECV, PACKET_CONTACT_MSG_RECV_V3, PACKET_NO_MORE_MSGS };
+	pack->expected_responses = { RESPONSE_CODE_CHANNEL_MSG_RECV, RESPONSE_CODE_CHANNEL_MSG_RECV_V3, RESPONSE_CODE_CONTACT_MSG_RECV, RESPONSE_CODE_CONTACT_MSG_RECV_V3, RESPONSE_CODE_NO_MORE_MSGS };
 	outgoing_commands.push_back(pack);
 }
 
@@ -122,7 +122,7 @@ void queue_packet_set_time(int64 ts) {
 	buffer_append_int<uint32>(&buf, Get_ULE32((uint32)ts));
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
-	pack->expected_responses = { PACKET_OK };
+	pack->expected_responses = { RESPONSE_CODE_OK };
 	outgoing_commands.push_back(pack);
 }
 
@@ -136,7 +136,7 @@ void queue_packet_get_contacts(uint32 last_mod = 0) {
 	}
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);	
-	pack->expected_responses = { PACKET_CONTACT_START };// , PACKET_CONTACT, PACKET_CONTACT_END
+	pack->expected_responses = { RESPONSE_CODE_CONTACT_START };// , RESPONSE_CODE_CONTACT, RESPONSE_CODE_CONTACT_END
 	outgoing_commands.push_back(pack);	
 }
 
@@ -161,7 +161,7 @@ void queue_packet_send_channel_msg(uint8 channel_idx, const string& str, MESHCOR
 	buffer_append(&buf, str.c_str(), str.length());
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
-	pack->expected_responses = { PACKET_OK };
+	pack->expected_responses = { RESPONSE_CODE_OK };
 	pack->is_message = true;
 	outgoing_commands.push_back(pack);
 }
@@ -193,7 +193,7 @@ void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const ui
 	buffer_append(&buf, (const char *)data, data_length);
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
-	pack->expected_responses = { PACKET_OK };
+	pack->expected_responses = { RESPONSE_CODE_OK };
 	pack->is_message = true;
 	outgoing_commands.push_back(pack);
 }
@@ -239,7 +239,7 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 	
-	pack->expected_responses = { PACKET_MSG_SENT };
+	pack->expected_responses = { RESPONSE_CODE_MSG_SENT };
 	pack->is_message = true;
 	outgoing_commands.push_back(pack);
 }
@@ -271,7 +271,7 @@ void queue_packet_direct_datagram(const string& pubkey_or_prefix, uint8 data_typ
 	buffer_append(&buf, (const char*)data, data_length);
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
-	pack->expected_responses = { PACKET_MSG_SENT };
+	pack->expected_responses = { RESPONSE_CODE_MSG_SENT };
 	pack->is_message = true;
 	outgoing_commands.push_back(pack);
 }
@@ -296,7 +296,7 @@ void queue_packet_send_status_request(const string& pubkey) {
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 
-	pack->expected_responses = { PACKET_OK, PACKET_STATUS_RESPONSE };
+	pack->expected_responses = { RESPONSE_CODE_OK, RESPONSE_CODE_STATUS_RESPONSE };
 	outgoing_commands.push_back(pack);
 }
 
@@ -350,7 +350,7 @@ void queue_packet_set_channel_config(uint8 channel_idx, const string& channelNam
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 
-	pack->expected_responses = { PACKET_OK };
+	pack->expected_responses = { RESPONSE_CODE_OK };
 	outgoing_commands.push_back(pack);
 
 	queue_packet_get_channel_info(channel_idx);
@@ -374,7 +374,7 @@ void queue_packet_erase_channel(uint8 channel_idx) {
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 
-	pack->expected_responses = { PACKET_OK };
+	pack->expected_responses = { RESPONSE_CODE_OK };
 	outgoing_commands.push_back(pack);
 
 	queue_packet_get_channel_info(channel_idx);

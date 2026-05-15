@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026, Drift Solutions
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -22,14 +22,14 @@ const char* GetMeshCoreErrorString(uint8 code) {
 }
 
 void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
-	const uint8& packet_type = pack[0];
+	const MESHCORE_RESPONSE_CODES& packet_type = (MESHCORE_RESPONSE_CODES)pack[0];
 
-	if (packet_type == PACKET_LOG_DATA) {
+	if (packet_type == RESPONSE_CODE_LOG_DATA) {
 		//ignore
 		return;
 	}
 
-	if (packet_type == PACKET_ADVERTISEMENT) {
+	if (packet_type == RESPONSE_CODE_ADVERTISEMENT) {
 		if (packlen >= 33) {
 			string pubkey = bin2hex(pack + 1, 32);
 			shared_ptr<MeshCoreUser> u;
@@ -43,13 +43,13 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CONTACT && packlen >= sizeof(_PACKET_CONTACT)) {
+	if (packet_type == RESPONSE_CODE_CONTACT && packlen >= sizeof(_PACKET_CONTACT)) {
 		_PACKET_CONTACT* c = (_PACKET_CONTACT*)pack;
 		add_or_update_user(c);
 		return;
 	}
 
-	if (packet_type == PACKET_CONTACT_END) {
+	if (packet_type == RESPONSE_CODE_CONTACT_END) {
 		printf("End of contacts list.\n");
 		if (packlen >= 5) {
 			uint32 lastmod = Get_ULE32(*(uint32*)(pack + 1));
@@ -66,7 +66,7 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CONTACT_DELETED) {
+	if (packet_type == RESPONSE_CODE_CONTACT_DELETED) {
 		// We don't really need to delete it from our list just because the node did, since it's more memory limited
 		/*
 		if (packlen >= 33) {
@@ -82,12 +82,12 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_MESSAGES_WAITING) {
+	if (packet_type == RESPONSE_CODE_MESSAGES_WAITING) {
 		queue_packet_get_message();
 		return;
 	}
 
-	if (packet_type == PACKET_ACK) {
+	if (packet_type == RESPONSE_CODE_ACK) {
 		_PACKET_ACK* ack = (_PACKET_ACK*)pack;
 		if (packlen >= sizeof(_PACKET_ACK)) {
 			uint32 tag = Get_ULE32(*(uint32*)ack->ack_code);
@@ -109,7 +109,7 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_STATUS_RESPONSE && packlen >= sizeof(_PACKET_STATUS_RESPONSE)) {
+	if (packet_type == RESPONSE_CODE_STATUS_RESPONSE && packlen >= sizeof(_PACKET_STATUS_RESPONSE)) {
 		_PACKET_STATUS_RESPONSE* s = (_PACKET_STATUS_RESPONSE*)pack;
 
 		UniValue obj(UniValue::VOBJ);
@@ -141,9 +141,9 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		PrintData(config.meshcore.log_fp, pack, packlen);
 	}
 
-	const uint8& packet_type = pack[0];
+	const MESHCORE_RESPONSE_CODES& packet_type = (MESHCORE_RESPONSE_CODES)pack[0];
 
-	if (packet_type >= 0x80 || packet_type == PACKET_CONTACT || packet_type == PACKET_CONTACT_END) {
+	if (packet_type >= 0x80 || packet_type == RESPONSE_CODE_CONTACT || packet_type == RESPONSE_CODE_CONTACT_END) {
 		handleIncomingPacketPushNotifications(pack, packlen);
 		return;
 	}
@@ -166,7 +166,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		}
 	}
 
-	if (packet_type == PACKET_OK) {
+	if (packet_type == RESPONSE_CODE_OK) {
 		if (packlen >= 5) {
 			uint32 value = Get_ULE32(*(uint32*)(pack + 1));
 			mesh_log("Received OK reply with code %u to last command.\n", value);
@@ -176,7 +176,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_ERROR) {
+	if (packet_type == RESPONSE_CODE_ERROR) {
 		uint8 code = 0;
 		if (packlen >= 2) {
 			code = pack[1];
@@ -194,7 +194,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_MSG_SENT) {
+	if (packet_type == RESPONSE_CODE_MSG_SENT) {
 		if (packlen >= sizeof(_PACKET_MSG_SENT)) {
 			_PACKET_MSG_SENT* ms = (_PACKET_MSG_SENT*)pack;
 			uint32 tag = Get_ULE32(ms->tag);
@@ -219,7 +219,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_SELF_INFO && packlen > sizeof(_PACKET_SELF_INFO)) {
+	if (packet_type == RESPONSE_CODE_SELF_INFO && packlen > sizeof(_PACKET_SELF_INFO)) {
 		_PACKET_SELF_INFO* si = (_PACKET_SELF_INFO*)pack;
 		string name((char*)pack + sizeof(_PACKET_SELF_INFO), packlen - sizeof(_PACKET_SELF_INFO));
 		UniValue obj(UniValue::VOBJ);
@@ -243,7 +243,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_DEVICE_INFO && packlen >= sizeof(_PACKET_DEVICE_INFO)) {
+	if (packet_type == RESPONSE_CODE_DEVICE_INFO && packlen >= sizeof(_PACKET_DEVICE_INFO)) {
 		_PACKET_DEVICE_INFO* di = (_PACKET_DEVICE_INFO*)pack;
 		UniValue obj(UniValue::VOBJ);
 		obj.pushKV("firmware_version", di->firmware_version);
@@ -260,7 +260,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CHANNEL_INFO && packlen >= sizeof(_PACKET_CHANNEL_INFO)) {
+	if (packet_type == RESPONSE_CODE_CHANNEL_INFO && packlen >= sizeof(_PACKET_CHANNEL_INFO)) {
 		_PACKET_CHANNEL_INFO* ci = (_PACKET_CHANNEL_INFO*)pack;
 
 		add_or_update_channel(ci);
@@ -269,7 +269,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CONTACT_START) {
+	if (packet_type == RESPONSE_CODE_CONTACT_START) {
 		printf("Receiving contacts list...\n");
 		if (packlen >= 5) {
 			uint32 count = Get_ULE32(*(uint32*)(pack + 1));
@@ -280,10 +280,10 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CURRENT_TIME) {
+	if (packet_type == RESPONSE_CODE_CURRENT_TIME) {
 	}
 
-	if (packet_type == PACKET_BATTERY) {
+	if (packet_type == RESPONSE_CODE_BATTERY) {
 		_PACKET_BATTERY* bs = (_PACKET_BATTERY*)pack;
 
 		uint16 millivolts = Get_ULE16(bs->battery_voltage);
@@ -302,7 +302,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CONTACT_MSG_RECV && packlen >= sizeof(PACKET_CONTACT_MSG_RECV)) {
+	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV && packlen >= sizeof(RESPONSE_CODE_CONTACT_MSG_RECV)) {
 		_PACKET_CONTACT_MSG_RECV* msg = (_PACKET_CONTACT_MSG_RECV*)pack;
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
@@ -328,7 +328,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CONTACT_MSG_RECV_V3 && packlen >= sizeof(PACKET_CONTACT_MSG_RECV_V3)) {
+	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV_V3 && packlen >= sizeof(RESPONSE_CODE_CONTACT_MSG_RECV_V3)) {
 		_PACKET_CONTACT_MSG_RECV_V3* msg = (_PACKET_CONTACT_MSG_RECV_V3*)pack;
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
@@ -354,7 +354,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CHANNEL_MSG_RECV && packlen >= sizeof(PACKET_CHANNEL_MSG_RECV)) {
+	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV && packlen >= sizeof(RESPONSE_CODE_CHANNEL_MSG_RECV)) {
 		_PACKET_CHANNEL_MSG_RECV* msg = (_PACKET_CHANNEL_MSG_RECV*)pack;
 
 		UniValue obj(UniValue::VOBJ);
@@ -377,7 +377,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_CHANNEL_MSG_RECV_V3 && packlen >= sizeof(PACKET_CHANNEL_MSG_RECV_V3)) {
+	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV_V3 && packlen >= sizeof(RESPONSE_CODE_CHANNEL_MSG_RECV_V3)) {
 		_PACKET_CHANNEL_MSG_RECV_V3* msg = (_PACKET_CHANNEL_MSG_RECV_V3*)pack;
 
 		UniValue obj(UniValue::VOBJ);
@@ -400,7 +400,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == PACKET_NO_MORE_MSGS) {
+	if (packet_type == RESPONSE_CODE_NO_MORE_MSGS) {
 		state.lastMessageCheck = time(NULL);
 		return;
 	}

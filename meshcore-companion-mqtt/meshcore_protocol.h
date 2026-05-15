@@ -7,87 +7,91 @@
 #define MESHCORE_PROTOCOL_H
 
 // Command codes
-#define CMD_APP_START                   0x01
-#define CMD_SEND_TXT_MSG                0x02
-#define CMD_SEND_CHANNEL_TXT_MSG        0x03
-#define CMD_GET_CONTACTS                0x04
-#define CMD_GET_DEVICE_TIME             0x05
-#define CMD_SET_DEVICE_TIME             0x06
-#define CMD_SEND_SELF_ADVERT            0x07
-#define CMD_SET_ADVERT_NAME             0x08
-#define CMD_ADD_UPDATE_CONTACT          0x09
-#define CMD_SYNC_NEXT_MESSAGE           0x0A
-#define CMD_SET_RADIO_PARAMS            0x0B
-#define CMD_SET_RADIO_TX_POWER          0x0C
-#define CMD_RESET_PATH                  0x0D
-#define CMD_SET_ADVERT_LATLON           0x0E
-#define CMD_REMOVE_CONTACT              0x0F
-#define CMD_SHARE_CONTACT               0x10
-#define CMD_EXPORT_CONTACT              0x11
-#define CMD_IMPORT_CONTACT              0x12
-#define CMD_REBOOT                      0x13
-#define CMD_GET_BATT_AND_STORAGE        0x14
-#define CMD_SET_TUNING_PARAMS           0x15
-#define CMD_DEVICE_QEURY                0x16
-#define CMD_EXPORT_PRIVATE_KEY          0x17
-#define CMD_IMPORT_PRIVATE_KEY          0x18
-#define CMD_SEND_RAW_DATA               0x19
-#define CMD_SEND_LOGIN                  0x1A
-#define CMD_SEND_STATUS_REQ             0x1B
-#define CMD_HAS_CONNECTION              0x1C
-#define CMD_LOGOUT                      0x1D  // 'Disconnect'
-#define CMD_GET_CONTACT_BY_KEY          0x1E
-#define CMD_GET_CHANNEL                 0x1F
-#define CMD_SET_CHANNEL                 0x20
-#define CMD_SIGN_START                  0x21
-#define CMD_SIGN_DATA                   0x22
-#define CMD_SIGN_FINISH                 0x23
-#define CMD_SEND_TRACE_PATH             0x24
-#define CMD_SET_DEVICE_PIN              0x25
-#define CMD_SET_OTHER_PARAMS            0x26
-#define CMD_SEND_TELEMETRY_REQ          0x27  // can deprecate this
-#define CMD_GET_CUSTOM_VARS             0x28
-#define CMD_SET_CUSTOM_VAR              0x29
-#define CMD_GET_ADVERT_PATH             0x2A
-#define CMD_GET_TUNING_PARAMS           0x2B
-// NOTE: CMD range 0x2C..0x31 parked, potentially for WiFi operations
-#define CMD_BINARY_REQ                  0x32
-#define CMD_FACTORY_RESET               0x33
-#define CMD_PATH_DISCOVERY              0x34
-#define CMD_SET_FLOOD_SCOPE             0x36
-#define CMD_SEND_CONTROL_DATA           0x37
-#define CMD_SEND_ANON_REQ               0x39
-#define CMD_SET_AUTOADD_CONFIG          0x3A
-#define CMD_GET_AUTOADD_CONFIG          0x3B
-#define CMD_GET_ALLOWED_REPEAT_FREQ     0x3C
-#define CMD_GET_STATS                   0x38
-#define CMD_SET_PATH_HASH_MODE          0x3D
-#define CMD_SET_DEFAULT_FLOOD_SCOPE     0x3F
-#define CMD_GET_DEFAULT_FLOOD_SCOPE     0x40
+enum MESHCORE_COMMAND_CODES : uint8 {
+	CMD_APP_START                   = 0x01,
+	CMD_SEND_TXT_MSG                = 0x02,
+	CMD_SEND_CHANNEL_TXT_MSG        = 0x03,
+	CMD_GET_CONTACTS                = 0x04,
+	CMD_GET_DEVICE_TIME             = 0x05,
+	CMD_SET_DEVICE_TIME             = 0x06,
+	CMD_SEND_SELF_ADVERT            = 0x07,
+	CMD_SET_ADVERT_NAME             = 0x08,
+	CMD_ADD_UPDATE_CONTACT          = 0x09,
+	CMD_SYNC_NEXT_MESSAGE           = 0x0A,
+	CMD_SET_RADIO_PARAMS            = 0x0B,
+	CMD_SET_RADIO_TX_POWER          = 0x0C,
+	CMD_RESET_PATH                  = 0x0D,
+	CMD_SET_ADVERT_LATLON           = 0x0E,
+	CMD_REMOVE_CONTACT              = 0x0F,
+	CMD_SHARE_CONTACT               = 0x10,
+	CMD_EXPORT_CONTACT              = 0x11,
+	CMD_IMPORT_CONTACT              = 0x12,
+	CMD_REBOOT                      = 0x13,
+	CMD_GET_BATT_AND_STORAGE        = 0x14,
+	CMD_SET_TUNING_PARAMS           = 0x15,
+	CMD_DEVICE_QEURY                = 0x16,
+	CMD_EXPORT_PRIVATE_KEY          = 0x17,
+	CMD_IMPORT_PRIVATE_KEY          = 0x18,
+	CMD_SEND_RAW_DATA               = 0x19,
+	CMD_SEND_LOGIN                  = 0x1A,
+	CMD_SEND_STATUS_REQ             = 0x1B,
+	CMD_HAS_CONNECTION              = 0x1C,
+	CMD_LOGOUT                      = 0x1D,  // 'Disconnect'
+	CMD_GET_CONTACT_BY_KEY          = 0x1E,
+	CMD_GET_CHANNEL                 = 0x1F,
+	CMD_SET_CHANNEL                 = 0x20,
+	CMD_SIGN_START                  = 0x21,
+	CMD_SIGN_DATA                   = 0x22,
+	CMD_SIGN_FINISH                 = 0x23,
+	CMD_SEND_TRACE_PATH             = 0x24,
+	CMD_SET_DEVICE_PIN              = 0x25,
+	CMD_SET_OTHER_PARAMS            = 0x26,
+	CMD_SEND_TELEMETRY_REQ          = 0x27,  // can deprecate this
+	CMD_GET_CUSTOM_VARS             = 0x28,
+	CMD_SET_CUSTOM_VAR              = 0x29,
+	CMD_GET_ADVERT_PATH             = 0x2A,
+	CMD_GET_TUNING_PARAMS           = 0x2B,
+	// NOTE: CMD range 0x2C..0x31 parked, potentially for WiFi operations
+	CMD_BINARY_REQ                  = 0x32,
+	CMD_FACTORY_RESET               = 0x33,
+	CMD_PATH_DISCOVERY              = 0x34,
+	CMD_SET_FLOOD_SCOPE             = 0x36,
+	CMD_SEND_CONTROL_DATA           = 0x37,
+	CMD_SEND_ANON_REQ               = 0x39,
+	CMD_SET_AUTOADD_CONFIG          = 0x3A,
+	CMD_GET_AUTOADD_CONFIG          = 0x3B,
+	CMD_GET_ALLOWED_REPEAT_FREQ     = 0x3C,
+	CMD_GET_STATS                   = 0x38,
+	CMD_SET_PATH_HASH_MODE          = 0x3D,
+	CMD_SET_DEFAULT_FLOOD_SCOPE     = 0x3F,
+	CMD_GET_DEFAULT_FLOOD_SCOPE     = 0x40,
+};
 
 // Response codes - https://docs.meshcore.io/companion_protocol/#response-parsing
-#define PACKET_OK                   0x00
-#define PACKET_ERROR                0x01
-#define PACKET_CONTACT_START        0x02
-#define PACKET_CONTACT              0x03
-#define PACKET_CONTACT_END          0x04
-#define PACKET_SELF_INFO            0x05
-#define PACKET_MSG_SENT             0x06
-#define PACKET_CONTACT_MSG_RECV     0x07
-#define PACKET_CHANNEL_MSG_RECV     0x08
-#define PACKET_CURRENT_TIME         0x09
-#define PACKET_NO_MORE_MSGS         0x0A
-#define PACKET_BATTERY              0x0C
-#define PACKET_DEVICE_INFO          0x0D
-#define PACKET_CONTACT_MSG_RECV_V3  0x10
-#define PACKET_CHANNEL_MSG_RECV_V3  0x11
-#define PACKET_CHANNEL_INFO         0x12
-#define PACKET_ADVERTISEMENT        0x80
-#define PACKET_ACK                  0x82
-#define PACKET_MESSAGES_WAITING     0x83
-#define PACKET_STATUS_RESPONSE      0x87
-#define PACKET_LOG_DATA             0x88
-#define PACKET_CONTACT_DELETED      0x8F
+enum MESHCORE_RESPONSE_CODES : uint8 {
+	RESPONSE_CODE_OK                   = 0x00,
+	RESPONSE_CODE_ERROR                = 0x01,
+	RESPONSE_CODE_CONTACT_START        = 0x02,
+	RESPONSE_CODE_CONTACT              = 0x03,
+	RESPONSE_CODE_CONTACT_END          = 0x04,
+	RESPONSE_CODE_SELF_INFO            = 0x05,
+	RESPONSE_CODE_MSG_SENT             = 0x06,
+	RESPONSE_CODE_CONTACT_MSG_RECV     = 0x07,
+	RESPONSE_CODE_CHANNEL_MSG_RECV     = 0x08,
+	RESPONSE_CODE_CURRENT_TIME         = 0x09,
+	RESPONSE_CODE_NO_MORE_MSGS         = 0x0A,
+	RESPONSE_CODE_BATTERY              = 0x0C,
+	RESPONSE_CODE_DEVICE_INFO          = 0x0D,
+	RESPONSE_CODE_CONTACT_MSG_RECV_V3  = 0x10,
+	RESPONSE_CODE_CHANNEL_MSG_RECV_V3  = 0x11,
+	RESPONSE_CODE_CHANNEL_INFO         = 0x12,
+	RESPONSE_CODE_ADVERTISEMENT        = 0x80,
+	RESPONSE_CODE_ACK                  = 0x82,
+	RESPONSE_CODE_MESSAGES_WAITING     = 0x83,
+	RESPONSE_CODE_STATUS_RESPONSE      = 0x87,
+	RESPONSE_CODE_LOG_DATA             = 0x88,
+	RESPONSE_CODE_CONTACT_DELETED      = 0x8F,
+};
 
 enum MESHCORE_TEXT_TYPES : uint8 {
 	TXT_TYPE_PLAIN = 0, // a plain text message
@@ -98,14 +102,9 @@ enum MESHCORE_TEXT_TYPES : uint8 {
 #pragma pack(1)
 
 struct _PACKET_APP_START {
-	uint8 packet_type = 0x01;
+	MESHCORE_COMMAND_CODES packet_type = CMD_APP_START;
 	uint8 app_ver = 0x03;
 	uint8 reserved[6] = { 0 };
-};
-
-struct _PACKET_OK {
-	uint8 packet_type; // PACKET_OK;
-	//uint32 error_code;
 };
 
 struct _PACKET_SELF_INFO {
@@ -127,7 +126,7 @@ Byte 56: Radio Spreading Factor
 Byte 57: Radio Coding Rate
 Bytes 58+: Device Name (UTF-8, variable length, no null terminator required)
 */
-	uint8 packet_type; // PACKET_SELF_INFO;
+	MESHCORE_RESPONSE_CODES packet_type; // RESPONSE_CODE_SELF_INFO;
 	uint8 advertisement_type;
 	uint8 tx_power;
 	uint8 max_tx_power;
@@ -161,7 +160,7 @@ struct _PACKET_DEVICE_INFO {
 	Byte 80: Client repeat enabled/preferred (firmware v9+)
 	Byte 81: Path hash mode (firmware v10+)
 */
-	uint8  packet_type;       // PACKET_DEVICE_INFO
+	MESHCORE_RESPONSE_CODES packet_type;       // RESPONSE_CODE_DEVICE_INFO
 	uint8  firmware_version;
 	// firmware version >= 3:
 	uint8  max_contacts_raw;  // actual = value * 2
@@ -181,7 +180,7 @@ struct _PACKET_CHANNEL_INFO {
 		Bytes 2 - 33 : Channel Name(32 bytes, null - terminated)
 		Bytes 34 - 49 : Secret(16 bytes)
 	*/
-	uint8 packet_type;      // PACKET_CHANNEL_INFO
+	MESHCORE_RESPONSE_CODES packet_type;      // RESPONSE_CODE_CHANNEL_INFO
 	uint8 channel_index;
 	char  channel_name[32];
 	uint8 secret[16];
@@ -194,7 +193,7 @@ Bytes 1-2: Battery Voltage (16-bit little-endian, millivolts)
 Bytes 3-6: Used Storage (32-bit little-endian, KB)
 Bytes 7-10: Total Storage (32-bit little-endian, KB)
 	*/
-	uint8  packet_type;      // PACKET_BATTERY
+	MESHCORE_RESPONSE_CODES packet_type;      // RESPONSE_CODE_BATTERY
 	uint16 battery_voltage;  // millivolts
 	uint32 used_storage;     // KB
 	uint32 total_storage;    // KB
@@ -207,7 +206,7 @@ Byte 1: Route Flag (0 = direct, 1 = flood)
 Bytes 2-5: Tag / Expected ACK (4 bytes, little-endian)
 Bytes 6-9: Suggested Timeout (32-bit little-endian, milliseconds)
 	*/
-	uint8  packet_type;        // PACKET_MSG_SENT
+	MESHCORE_RESPONSE_CODES packet_type;        // RESPONSE_CODE_MSG_SENT
 	uint8  route_flag;         // 0 = direct, 1 = flood
 	uint32 tag;                // expected ACK
 	uint32 suggested_timeout;  // milliseconds
@@ -219,7 +218,7 @@ Byte 0: 0x82
 Bytes 1-4: ACK Code (4 bytes, hex)
 Bytes 5+: CRC/other data?
 	*/
-	uint8 packet_type;  // PACKET_ACK
+	MESHCORE_RESPONSE_CODES packet_type;  // RESPONSE_CODE_ACK
 	uint8 ack_code[4];
 };
 
@@ -233,7 +232,7 @@ Bytes 9-12: Timestamp (32-bit little-endian)
 Bytes 13-16: Signature (4 bytes, only if txt_type == 2)
 Bytes 17+: Message Text (UTF-8)
 	*/
-	uint8  packet_type;         // PACKET_CONTACT_MSG_RECV
+	MESHCORE_RESPONSE_CODES packet_type;         // RESPONSE_CODE_CONTACT_MSG_RECV
 	uint8  public_key_prefix[6];
 	uint8  path_length;
 	MESHCORE_TEXT_TYPES  text_type;
@@ -254,7 +253,7 @@ Bytes 12-15: Timestamp (32-bit little-endian)
 Bytes 16-19: Signature (4 bytes, only if txt_type == 2)
 Bytes 20+: Message Text (UTF-8)
 	*/
-	uint8  packet_type;         // PACKET_CONTACT_MSG_RECV_V3
+	MESHCORE_RESPONSE_CODES packet_type;         // RESPONSE_CODE_CONTACT_MSG_RECV_V3
 	int8   snr;                 // multiplied by 4
 	uint8  reserved[2];
 	uint8  public_key_prefix[6];
@@ -274,7 +273,7 @@ Byte 3: Text Type
 Bytes 4-7: Timestamp (32-bit little-endian)
 Bytes 8+: Message Text (UTF-8)
 	*/
-	uint8  packet_type;    // PACKET_CHANNEL_MSG_RECV
+	MESHCORE_RESPONSE_CODES packet_type;    // RESPONSE_CODE_CHANNEL_MSG_RECV
 	uint8  channel_index;  // 0-7
 	uint8  path_length;
 	uint8  text_type;
@@ -293,7 +292,7 @@ Byte 6: Text Type
 Bytes 7-10: Timestamp (32-bit little-endian)
 Bytes 11+: Message Text (UTF-8)
 	*/
-	uint8  packet_type;    // PACKET_CHANNEL_MSG_RECV_V3
+	MESHCORE_RESPONSE_CODES packet_type;    // RESPONSE_CODE_CHANNEL_MSG_RECV_V3
 	int8   snr;            // multiplied by 4
 	uint8  reserved[2];
 	uint8  channel_index;  // 0-7
@@ -311,7 +310,7 @@ enum CONTACT_TYPE : uint8 {
 };
 
 struct _PACKET_CONTACT {
-	uint8        packet_type;   // PACKET_CONTACT
+	MESHCORE_RESPONSE_CODES packet_type;   // RESPONSE_CODE_CONTACT
 	uint8        public_key[32];
 	CONTACT_TYPE type;          // one of ADV_TYPE_*
 	uint8        flags;
@@ -325,7 +324,7 @@ struct _PACKET_CONTACT {
 };
 
 struct _PACKET_STATUS_RESPONSE {
-	uint8        packet_type;   // 0x87
+	MESHCORE_RESPONSE_CODES packet_type;   // 0x87
 	uint8 reserved;
 	uint8 public_key_prefix[6];
 	//status_data : bytes     // remainder of frame
