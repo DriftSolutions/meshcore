@@ -115,6 +115,8 @@ void do_shutdown() {
 		ev = NULL;
 	}
 
+	db_quit();
+
 	printf("Goodbye.\n");
 }
 
@@ -288,6 +290,10 @@ int main(int argc, const char* argv[]) {
 	sa_new.sa_flags = 0;
 	sigaction(SIGINT, &sa_new, &sa_old);
 #endif
+
+	if (!db_init()) {
+		exit(1);
+	}
 
 	config.mqtt.client = new MQTT_IRC_Client(config.mqtt.host, config.mqtt.port, config.mqtt.username, config.mqtt.password, config.mqtt.topic_prefix);
 

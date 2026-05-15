@@ -5,14 +5,27 @@
 
 #include "meshmqtt.h"
 
+bool get_channel(int channel_idx, shared_ptr<MeshCoreChannel>& c) {
+	if (channel_idx < 0 || channel_idx > MESHCORE_HIGHEST_CHANNEL) {
+		return false;
+	}
+
+	auto x = state.chans.find(channel_idx);
+	if (x != state.chans.end()) {
+		c = x->second;
+		return true;
+	}
+
+	return false;
+}
+
 void add_or_update_channel(_PACKET_CHANNEL_INFO* ci) {
-	if (ci->channel_index < 0 || ci->channel_index > MESHCORE_HIGHEST_CHANNEL) {
+	if (ci->channel_index > MESHCORE_HIGHEST_CHANNEL) {
 		return;
 	}
 
 	shared_ptr<MeshCoreChannel> c;
-	auto x = state.chans.find(ci->channel_index);
-	if (x == state.chans.end()) {
+	if (!get_channel((int)ci->channel_index, c)) {
 		c = make_shared<MeshCoreChannel>();
 		c->channel_index = ci->channel_index;
 		state.chans[c->channel_index] = c;

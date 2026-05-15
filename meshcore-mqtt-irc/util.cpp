@@ -28,6 +28,13 @@ string get_sanitized_nick(const string& str) {
 	return ret;
 }
 
+string get_channel_name_from_meshcore(const string& name) {
+	char irc_name[IRC_MAX_CHAN_LEN + 1];
+	sstrcpy(irc_name, "#");
+	sstrcat(irc_name, get_sanitized_nick(name[0] == '#' ? name.substr(1) : name).c_str());
+	return irc_name;
+}
+
 int64 parse_duration_str(const string& str) {
 	if (str.length() == 0) {
 		return -1;

@@ -142,6 +142,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="meshcore.cpp" />
     <ClCompile Include="mqtt.cpp" />
+    <ClCompile Include="sqlite.cpp" />
     <ClCompile Include="users.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>

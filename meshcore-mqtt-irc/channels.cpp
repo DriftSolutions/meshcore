@@ -7,22 +7,54 @@
 
 map<int, shared_ptr<MeshCoreChannel>> chans;
 
-void add_channel(int idx, const string& name, bool is_private) {
-	if (chans.find(idx) != chans.end()) {
-		// we already have it
-		return;
-	}
+void add_channel(int idx, const string& meshcore_name, bool is_private) {
 	if (idx < 0 || idx > MESHCORE_HIGHEST_CHANNEL) {
 		return;
 	}
 
-	auto c = make_shared<MeshCoreChannel>();
+	shared_ptr<MeshCoreChannel> c;
+	if (get_channel_by_meshcore_index(idx, c)) {
+		// we already have it
+
+		if (!strcmp(c->meshcore_name, meshcore_name.c_str())) {
+			// no change
+			return;
+		}
+		if (!strcmp(c->irc_name, get_channel_name_from_meshcore(meshcore_name).c_str())) {
+			// no change
+			return;
+		}
+
+		SendPartNoticesFor(config.self_user.get(), c->irc_name);
+
+		if (meshcore_name.empty()) {
+			printf("[irc] Left channel %d: %s\n", idx, c->meshcore_name);
+			auto x = chans.find(idx);
+			if (x != chans.end()) {
+				chans.erase(x);
+			}
+		} else {
+			printf("[irc] Channel %d changed: %s -> %s\n", idx, c->meshcore_name, meshcore_name.c_str());
+		}
+
+		//c->partUserFromChannel(config.self_user, true, true);
+	}
+
+	if (meshcore_name.empty()) {
+		return;
+	}
+
+	c = make_shared<MeshCoreChannel>();
 	c->meshcore_index = idx;
-	c->setNameFromMeshCore(name);
+	c->setNameFromMeshCore(meshcore_name);
 	c->is_private = is_private;
 	chans[idx] = c;
 
 	printf("[irc] Added channel %d: %s -> %s\n", idx, c->meshcore_name, c->irc_name);
+
+	if (!config.waitingForInitialState) {
+		c->addUserToChannel(config.self_user);
+	}
 }
 
 bool get_channel_by_meshcore_index(int idx, shared_ptr<MeshCoreChannel>& chan) {
@@ -183,7 +215,10 @@ void MeshCoreChannel::onReceiveMessage(shared_ptr<MeshCoreUser>& user, const cha
 		irc_name,
 		text
 	};
-	SendLineToAllAuthenticatedClients(parms);
+	if (!SendLineToAllAuthenticatedClients(parms)) {
+		// no clients are online and connected
+		AddOfflineMessage(parms);
+	}
 
 	user->onAction();
 	uc->last_message_time = time(NULL);

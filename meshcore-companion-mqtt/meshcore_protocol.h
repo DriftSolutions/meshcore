@@ -6,6 +6,66 @@
 #ifndef MESHCORE_PROTOCOL_H
 #define MESHCORE_PROTOCOL_H
 
+/*
+APP_START = 1
+SEND_TXT_MSG = 2
+SEND_CHANNEL_TXT_MSG = 3
+GET_CONTACTS = 4 # with optional 'since' (for efficient sync)
+GET_DEVICE_TIME = 5
+SET_DEVICE_TIME = 6
+SEND_SELF_ADVERT = 7
+SET_ADVERT_NAME = 8
+ADD_UPDATE_CONTACT = 9
+SYNC_NEXT_MESSAGE = 10
+SET_RADIO_PARAMS = 11
+SET_RADIO_TX_POWER = 12
+RESET_PATH = 13
+SET_ADVERT_LATLON = 14
+REMOVE_CONTACT = 15
+SHARE_CONTACT = 16
+EXPORT_CONTACT = 17
+IMPORT_CONTACT = 18
+REBOOT = 19
+GET_BATT_AND_STORAGE = 20   # was CMD_GET_BATTERY_VOLTAGE
+SET_TUNING_PARAMS = 21
+DEVICE_QEURY = 22
+EXPORT_PRIVATE_KEY = 23
+IMPORT_PRIVATE_KEY = 24
+SEND_RAW_DATA = 25
+SEND_LOGIN = 26
+SEND_STATUS_REQ = 27
+HAS_CONNECTION = 28
+LOGOUT = 29 # 'Disconnect'
+GET_CONTACT_BY_KEY = 30
+GET_CHANNEL = 31
+SET_CHANNEL = 32
+SIGN_START = 33
+SIGN_DATA = 34
+SIGN_FINISH = 35
+SEND_TRACE_PATH = 36
+SET_DEVICE_PIN = 37
+SET_OTHER_PARAMS = 38
+SEND_TELEMETRY_REQ = 39  # can deprecate this
+GET_CUSTOM_VARS = 40
+SET_CUSTOM_VAR = 41
+GET_ADVERT_PATH = 42
+GET_TUNING_PARAMS = 43
+# NOTE: CMD range 44..49 parked, potentially for WiFi operations
+BINARY_REQ = 50
+FACTORY_RESET = 51
+PATH_DISCOVERY = 52
+SET_FLOOD_SCOPE = 54
+SEND_CONTROL_DATA = 55
+SEND_ANON_REQ = 57
+SET_AUTOADD_CONFIG = 58
+GET_AUTOADD_CONFIG = 59
+GET_ALLOWED_REPEAT_FREQ = 60
+GET_STATS = 56  # R04: CMD_GET_STATS — used by get_stats_core / radio / packets
+SET_PATH_HASH_MODE = 61
+SET_DEFAULT_FLOOD_SCOPE = 63
+GET_DEFAULT_FLOOD_SCOPE = 64
+*/
+
 // Packet Types - https://docs.meshcore.io/companion_protocol/#response-parsing
 #define PACKET_OK                   0x00
 #define PACKET_ERROR                0x01
@@ -26,6 +86,7 @@
 #define PACKET_ADVERTISEMENT        0x80
 #define PACKET_ACK                  0x82
 #define PACKET_MESSAGES_WAITING     0x83
+#define PACKET_STATUS_RESPONSE      0x87
 #define PACKET_LOG_DATA             0x88
 #define PACKET_CONTACT_DELETED      0x8F
 
@@ -156,10 +217,11 @@ Bytes 6-9: Suggested Timeout (32-bit little-endian, milliseconds)
 struct _PACKET_ACK {
 	/*
 Byte 0: 0x82
-Bytes 1-6: ACK Code (6 bytes, hex)
+Bytes 1-4: ACK Code (4 bytes, hex)
+Bytes 5+: CRC/other data?
 	*/
 	uint8 packet_type;  // PACKET_ACK
-	uint8 ack_code[6];
+	uint8 ack_code[4];
 };
 
 struct _PACKET_CONTACT_MSG_RECV {
@@ -261,6 +323,13 @@ struct _PACKET_CONTACT {
 	int32        adv_lat;       // advertised latitude * 1E6
 	int32        adv_lon;       // advertised longitude * 1E6
 	uint32       lastmod;
+};
+
+struct _PACKET_STATUS_RESPONSE {
+	uint8        packet_type;   // 0x87
+	uint8 reserved;
+	uint8 public_key_prefix[6];
+	//status_data : bytes     // remainder of frame
 };
 
 struct _PACKET_ADD_UPDATE_CONTACT {

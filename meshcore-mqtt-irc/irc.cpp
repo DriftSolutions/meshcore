@@ -166,21 +166,8 @@ void Client::handleIncoming() {
 		if (i == recvbuf.len) { break; } // no line terminator found
 		if (buf[0] == 0) { continue; } // empty line
 
-		log("<- %s\n", buf);
-		/*
-		if (config.ircnets[netno].log_fp) {
-			char durbuf[32];
-			fprintf(config.ircnets[netno].log_fp, "%s < %s\r\n", ircbot_cycles_ts(durbuf, sizeof(durbuf)), buf);
-			fflush(config.ircnets[netno].log_fp);
-		}
-		*/
+		log("<- %s", buf);
 
-		/*
-		if (!strnicmp(buf, ":ERROR ", 7) || !strnicmp(buf, "ERROR ", 6)) {
-			ib_printf(_("[irc-%d] %s\n"), netno, buf);
-			break;
-		}
-		*/
 		char* cmd = NULL, *parms[32];
 		int nparms = parse_irc_line(buf, &cmd, (char**)&parms, 32);
 		if (nparms < 0) { continue; }
@@ -234,12 +221,15 @@ void Client::SendServerReply(const string& numeric, const vector<string>& parms,
 	sendLine(line);
 }
 
-void SendLineToAllAuthenticatedClients(const vector<string>& parms) {
+bool SendLineToAllAuthenticatedClients(const vector<string>& parms) {
+	bool had_authenticated = false;
 	for (auto& c : clients) {
 		if (c->state == CS_CONNECTED) {
 			c->SendLine(parms);
+			had_authenticated = true;
 		}
 	}
+	return had_authenticated;
 }
 
 void Client::SendLine(const vector<string>& parms) {
@@ -572,7 +562,21 @@ bool Client::handleIncomingConnected(char* cmd, char* parms[], int nparms) {
 					if (is_hostmask ? get_user_by_hostmask(dest, u) : get_user_by_irc_nick(dest, u)) {
 						if (u->meshcore_pubkey[0]) {
 							user->onAction();
-							config.mqtt.client->SendDirectMsg(u->meshcore_pubkey, parms[1], txt_type);
+							if (txt_type == 0 && parms[1][0] == 0x01) { // CTCP command
+								char* ccmd = parms[1] + 1;
+								if (ccmd[strlen(ccmd) - 1] == 0x01) {
+									if (!strnicmp(ccmd, "PING ", 5)) {
+										config.mqtt.client->SendStatusRequest(u->meshcore_pubkey);
+									} else {
+										SendServerReply(ERR_UNKNOWNCOMMAND, { "CTCP", "Unknown CTCP command" });
+									}
+								} else {
+									SendServerReply(ERR_UNKNOWNCOMMAND, { "CTCP", "Malformed CTCP request" });
+								}
+								int x = 1;
+							} else {
+								config.mqtt.client->SendDirectMsg(u->meshcore_pubkey, parms[1], txt_type);
+							}
 						} else {
 							SendServerReply(ERR_NOSUCHNICK, { dest, "No pubkey for this user" });
 						}
@@ -739,4 +743,6 @@ void Client::welcomeUser() {
 
 		c.second->sendPostJoinNotices(this);		
 	}
+
+	SendOfflineMessages(this);
 }

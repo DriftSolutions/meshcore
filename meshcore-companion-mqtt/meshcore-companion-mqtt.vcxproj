@@ -132,10 +132,12 @@
     <ClCompile Include="channels.cpp" />
     <ClCompile Include="contacts.cpp" />
     <ClCompile Include="driver_serial.cpp" />
-    <ClCompile Include="incoming_commands.cpp" />
+    <ClCompile Include="mqtt_incoming.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="meshcore_incoming.cpp" />
     <ClCompile Include="mqtt.cpp" />
     <ClCompile Include="meshcore.cpp" />
+    <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="meshcore_protocol.h" />

@@ -5,13 +5,18 @@
 
 #include "meshmqtt.h"
 
-#define COMPANION_FRAME_START 0x3E
-#define COMPANION_OUTGOING_FRAME_START 0x3C
-#define COMPANION_FRAME_HEADER_SIZE 3
-#define COMPANION_MAX_FRAME_SIZE 300
-
 list<shared_ptr<MeshCoreCommand>> outgoing_commands;
+map<uint32, shared_ptr<MeshCoreCommand>> outgoing_messages;
 shared_ptr<MeshCoreCommand> current_outgoing_command;
+
+void handleIncomingPackets();
+
+void remove_outgoing_message(uint32 tag) {
+	auto x = outgoing_messages.find(tag);
+	if (x != outgoing_messages.end()) {
+		outgoing_messages.erase(x);
+	}
+}
 
 void mesh_log(const char* fmt, ...) {
 	if (!config.meshcore.log_to_console && !config.meshcore.log_to_file) {
@@ -42,6 +47,9 @@ void mesh_log(const char* fmt, ...) {
 		}
 		if (config.meshcore.log_fp != NULL) {
 			vfprintf(config.meshcore.log_fp, fmt, va);
+#ifdef DEBUG
+			fflush(config.meshcore.log_fp);
+#endif
 		}
 	}
 
@@ -51,6 +59,7 @@ void mesh_log(const char* fmt, ...) {
 void reset_outgoing() {
 	current_outgoing_command.reset();
 	outgoing_commands.clear();
+	outgoing_messages.clear();
 	buffer_clear(&config.sendbuf);
 }
 
@@ -69,6 +78,14 @@ void queue_packet_device_query() {
 	auto pack = make_shared<MeshCoreCommand>();
 	pack->data.assign("\x16\x03", 2);
 	pack->expected_responses = { PACKET_DEVICE_INFO };
+	//pack->is_critical_command = true;
+	outgoing_commands.push_back(pack);
+}
+
+void queue_packet_battery_info() {
+	auto pack = make_shared<MeshCoreCommand>();
+	pack->data.assign("\x14", 1);
+	pack->expected_responses = { PACKET_BATTERY };
 	//pack->is_critical_command = true;
 	outgoing_commands.push_back(pack);
 }
@@ -119,7 +136,7 @@ void queue_packet_get_contacts(uint32 last_mod = 0) {
 	}
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);	
-	pack->expected_responses = { PACKET_CONTACT_END };
+	pack->expected_responses = { PACKET_CONTACT_START };// , PACKET_CONTACT, PACKET_CONTACT_END
 	outgoing_commands.push_back(pack);	
 }
 
@@ -133,20 +150,8 @@ void update_contacts(bool force_get_all) {
 	}
 }
 
-void MeshCoreCommandChannelMessage::onError(uint8 code) {
-	if (attempt < 3) {
-		auto pack = make_shared<MeshCoreCommandChannelMessage>(*this);
-		pack->attempt++;
-		PrintData(stdout, (const uint8*)pack->data.c_str(), pack->data.length());
-		outgoing_commands.push_front(pack);
-		printf("Retrying channel message, retry number %u ...\n", pack->attempt);
-	} else {
-		printf("Giving on channel message, retry limit hit...\n");
-	}
-}
-
 void queue_packet_send_channel_msg(uint8 channel_idx, const string& str, MESHCORE_TEXT_TYPES txt_type) {
-	auto pack = make_shared<MeshCoreCommandChannelMessage>();
+	auto pack = make_shared<MeshCoreCommand>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
 	buffer_append_int<uint8>(&buf, 0x03);
@@ -155,24 +160,42 @@ void queue_packet_send_channel_msg(uint8 channel_idx, const string& str, MESHCOR
 	buffer_append_int<uint32>(&buf, Get_ULE32((uint32)time(NULL)));
 	buffer_append(&buf, str.c_str(), str.length());
 	pack->data = buffer_as_string(&buf);
-	PrintData(stdout, buf.udata, buf.len);
 	buffer_free(&buf);
-	pack->is_message = true;
 	pack->expected_responses = { PACKET_OK };
+	pack->is_message = true;
 	outgoing_commands.push_back(pack);
 }
 
-void MeshCoreCommandDirectMessage::onError(uint8 code) {
+void MeshCoreCommandDirectMessage::onTimeOut() {
 	if (attempt < 3) {
 		auto pack = make_shared<MeshCoreCommandDirectMessage>(*this);
 		pack->attempt++;
 		pack->data[2] = pack->attempt;
-		PrintData(stdout, (const uint8 *)pack->data.c_str(), pack->data.length());
 		outgoing_commands.push_front(pack);
 		printf("Retrying direct message, retry number %u ...\n", pack->attempt);
 	} else {
 		printf("Giving on direct message, retry limit hit...\n");
 	}
+}
+
+void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const uint8* data, size_t data_length) {
+	if (data_length > MESHCORE_MAX_CHAN_DATAGRAM_LENGTH) {
+		printf("queue_packet_channel_datagram(): datagram too big!\n");
+		return;
+	}
+
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, 0x3E);
+	buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
+	buffer_append_int<uint8>(&buf, channel_idx);
+	buffer_append(&buf, (const char *)data, data_length);
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+	pack->expected_responses = { PACKET_OK };
+	pack->is_message = true;
+	outgoing_commands.push_back(pack);
 }
 
 bool is_valid_destination(const string& str) {
@@ -182,11 +205,18 @@ bool is_valid_destination(const string& str) {
 	return (strspn(str.c_str(), "0123456789abcdef") == str.length());
 }
 
+bool is_valid_pubkey(const string& str) {
+	if (str.length() != MESHCORE_PUBKEY_LEN) {
+		return false;
+	}
+	return (strspn(str.c_str(), "0123456789abcdef") == str.length());
+}
+
 void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& str, uint8 attempt, MESHCORE_TEXT_TYPES txt_type) {
-	static uint8 zero_prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2] = { 0 };
+	static const uint8 zero_prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2] = { 0 };
 	uint8 prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2];
 	if (!is_valid_destination(pubkey_or_prefix)) {
-		printf("queue_packet_send_direct_msg(): Invalid destion: %s\n", pubkey_or_prefix.c_str());
+		printf("queue_packet_send_direct_msg(): Invalid destination: %s\n", pubkey_or_prefix.c_str());
 		return;
 	}
 	if (!hex2bin(pubkey_or_prefix.c_str(), MESHCORE_PUBKEY_PREFIX_LEN, prefix, sizeof(prefix)) || !memcmp(prefix, zero_prefix, sizeof(prefix))) {
@@ -207,7 +237,6 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	buffer_append(&buf, str.c_str(), len);
 
 	pack->data = buffer_as_string(&buf);
-	PrintData(stdout, buf.udata, buf.len);
 	buffer_free(&buf);
 	
 	pack->expected_responses = { PACKET_MSG_SENT };
@@ -215,377 +244,166 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	outgoing_commands.push_back(pack);
 }
 
-/*
-CMD_SEND_TXT_MSG {
-  code: byte,   // constant 2
-  txt_type: byte,     // one of TXT_TYPE_*  (0 = plain)
-  attempt: byte,     // values: 0..3 (attempt number)
-  sender_timestamp: uint32,
-  pubkey_prefix: bytes(6),     // just first 6 bytes of recipient contact's public key
-  text: varchar    // remainder of frame  (max length: 160 bytes)
-}
-*/
-
-string trim_nulls(const string& str) {
-	size_t n = str.find((char)0, 0);
-	if (n != str.npos) {
-		return str.substr(0, n);
-	}
-	return str;
-}
-
-string trim_nulls(const char * str, size_t len) {
-	return trim_nulls(string(str, len));
-}
-
-const char* GetMeshCoreErrorString(uint8 code) {
-	switch (code) {
-		case 0x00: return "Generic error (no specific code)";
-		case 0x01: return "Invalid command";
-		case 0x02: return "Invalid parameter";
-		case 0x03: return "Channel not found";
-		case 0x04: return "Channel already exists";
-		case 0x05: return "Channel index out of range";
-		case 0x06: return "Secret mismatch";
-		case 0x07: return "Message too long";
-		case 0x08: return "Device busy";
-		case 0x09: return "Not enough storage";
-		default:   return "Unknown error";
-	}
-}
-
-void handleIncomingPacket(uint8* pack, uint16 packlen) {
-	const uint8& packet_type = pack[0];
-
-	if (packet_type == PACKET_LOG_DATA) {
-		//ignore
+void queue_packet_direct_datagram(const string& pubkey_or_prefix, uint8 data_type, const uint8* data, size_t data_length) {
+	if (data_length > MESHCORE_MAX_CHAN_DATAGRAM_LENGTH) {
+		printf("queue_packet_channel_datagram(): datagram too big!\n");
 		return;
 	}
 
-	if (packet_type == PACKET_ADVERTISEMENT) {
-		if (packlen >= 33) {
-			string pubkey = bin2hex(pack + 1, 32);
-			shared_ptr<MeshCoreUser> u;
-			if (get_user_by_pubkey(pubkey, u)) {
-				u->last_seen = time(NULL);
+	static const uint8 zero_prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2] = { 0 };
+	uint8 prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2];
+	if (!is_valid_destination(pubkey_or_prefix)) {
+		printf("queue_packet_send_direct_msg(): Invalid destination: %s\n", pubkey_or_prefix.c_str());
+		return;
+	}
+	if (!hex2bin(pubkey_or_prefix.c_str(), MESHCORE_PUBKEY_PREFIX_LEN, prefix, sizeof(prefix)) || !memcmp(prefix, zero_prefix, sizeof(prefix))) {
+		printf("queue_packet_send_direct_msg(): Error running hex2bin on %s !\n", pubkey_or_prefix.c_str());
+		return;
+	}
+
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, 0x32);
+	buffer_append(&buf, (const char*)prefix, sizeof(prefix));
+	buffer_append_int<uint8>(&buf, data_type);
+	//buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
+	buffer_append(&buf, (const char*)data, data_length);
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+	pack->expected_responses = { PACKET_MSG_SENT };
+	pack->is_message = true;
+	outgoing_commands.push_back(pack);
+}
+
+void queue_packet_send_status_request(const string& pubkey) {
+	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
+	uint8 key[MESHCORE_PUBKEY_LEN / 2];
+	if (!is_valid_pubkey(pubkey)) {
+		printf("queue_packet_send_status_request(): Invalid pubkey: %s\n", pubkey.c_str());
+		return;
+	}
+	if (!hex2bin(pubkey.c_str(), MESHCORE_PUBKEY_LEN, key, sizeof(key)) || !memcmp(key, zero_key, sizeof(key))) {
+		printf("queue_packet_send_status_request(): Error running hex2bin on %s !\n", pubkey.c_str());
+		return;
+	}
+
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, 0x1B);
+	buffer_append(&buf, (const char*)key, sizeof(key));
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+
+	pack->expected_responses = { PACKET_OK, PACKET_STATUS_RESPONSE };
+	outgoing_commands.push_back(pack);
+}
+
+void queue_packet_set_channel_config(uint8 channel_idx, const string& channelName, const string& secret_key) {
+	if (channel_idx > MESHCORE_HIGHEST_CHANNEL || channelName.empty()) {
+		printf("Error in queue_packet_set_channel_config(): invalid channel_index or empty channel_name!\n");
+		return;
+	}
+
+	char name[MESHCORE_MAX_CHAN_LEN + 1] = { 0 };
+	sstrcpy(name, channelName.c_str());
+	if (name[0] == 0) {
+		printf("Error in queue_packet_set_channel_config(): empty channel_name!\n");
+		return;
+	}
+
+	string key;
+	if (secret_key.empty()) {
+		if (channelName == "Public" || name[0] == '#') {
+			key = DeriveChannelKey(name);
+			if (key.empty()) {
+				// shouldn't happen
+				return;
 			}
-			UniValue obj(UniValue::VOBJ);
-			obj.pushKV("public_key", pubkey);
-			mqtt_send(config.mqtt.topic_prefix + "/advertisement", obj, false);
-		}
-		return;
-	}
-
-	if (packet_type == PACKET_CONTACT_DELETED) {
-		// We don't really need to delete it from our list just because the node did, since it's more memory limited
-		/*
-		if (packlen >= 33) {
-			string pubkey = bin2hex(pack + 1, 32);
-
-			del_user_by_pubkey(pubkey);
-
-			UniValue obj(UniValue::VOBJ);
-			obj.pushKV("public_key", pubkey);
-			mqtt_send(config.mqtt.topic_prefix + "/contact_deleted", obj, false);
-		}
-		*/
-		return;
-	}
-
-	if (packet_type == PACKET_MESSAGES_WAITING) {
-		queue_packet_get_message();
-		return;
-	}
-
-	mesh_log("Received packet (%u bytes):\n", packlen);
-	if (config.meshcore.log_fp != NULL) {
-		PrintData(config.meshcore.log_fp, pack, packlen);
-	}
-
-	if (packet_type == PACKET_ERROR) {
-		uint8 code = 0;
-		if (packlen >= 2) {
-			code = pack[1];
-			printf("Received error reply with error %s (0x%02X) to last command!\n", GetMeshCoreErrorString(code), code);
-			mesh_log("Received error reply with error %s (0x%02X) to last command!\n", GetMeshCoreErrorString(code), code);
+			key = bin2hex((const uint8*)key.c_str(), key.length());
 		} else {
-			printf("Received error reply to last command!\n");
-			mesh_log("Received error reply to last command!\n");
+			printf("Error in queue_packet_set_channel_config(): required secret_key is empty!\n");
+			return;
 		}
+	} else {
+		key = secret_key;
+	}
 
-		if (current_outgoing_command) {
-			auto& cur = current_outgoing_command;
-			cur->onError(code);
-			current_outgoing_command.reset();
-		}
-
+	if (key.length() != MESHCORE_CHAN_SECRET_LEN || strspn(key.c_str(), "0123456789abcdef") != key.length()) {
+		printf("Error in queue_packet_set_channel_config(): secret_key is incorrect length or not hex!\n");
+		return;
+	}
+	uint8 keybin[MESHCORE_CHAN_SECRET_LEN/2];
+	if (!hex2bin(key.c_str(), key.length(), keybin, sizeof(keybin))) {
+		printf("Error in queue_packet_set_channel_config(): error decoding secret_key from hex to binary!\n");
 		return;
 	}
 
-	if (current_outgoing_command) {
-		auto& cur = current_outgoing_command;
-		if (cur->expected_responses.find(packet_type) != cur->expected_responses.end()) {
-			mesh_log("Received response %02x for current command %02x\n", packet_type, cur->getType());
-			current_outgoing_command.reset();
-		}
-	}
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, 0x20);
+	buffer_append_int<uint8>(&buf, channel_idx);
+	buffer_append(&buf, name, MESHCORE_MAX_CHAN_LEN);
+	buffer_append(&buf, (const char *)keybin, sizeof(keybin));
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
 
-	if (packet_type == PACKET_SELF_INFO && packlen > sizeof(_PACKET_SELF_INFO)) {
-		_PACKET_SELF_INFO* si = (_PACKET_SELF_INFO*)pack;
-		string name((char*)pack + sizeof(_PACKET_SELF_INFO), packlen - sizeof(_PACKET_SELF_INFO));
-		UniValue obj(UniValue::VOBJ);
-		obj.pushKV("name", trim_nulls(name));
-		obj.pushKV("public_key", bin2hex(si->public_key, sizeof(si->public_key)));
-		obj.pushKV("advertisement_type", si->advertisement_type);
-		obj.pushKV("tx_power", si->tx_power);
-		obj.pushKV("max_tx_power", si->max_tx_power);
-		obj.pushKV("latitude", double(Get_SLE32(si->latitude)) / 1000000.0f);
-		obj.pushKV("longitude", double(Get_SLE32(si->longitude)) / 1000000.0f);
-		obj.pushKV("multi_acks", si->multi_acks);
-		obj.pushKV("advertisement_location_policy", si->advertisement_location_policy);
-		obj.pushKV("telemetry_mode", si->telemetry_mode);
-		obj.pushKV("manual_add_contacts", si->manual_add_contacts);
-		obj.pushKV("radio_frequency", (double)Get_ULE32(si->radio_frequency) / 1000.0);
-		obj.pushKV("radio_bandwidth", (double)Get_ULE32(si->radio_bandwidth) / 1000.0);
-		obj.pushKV("radio_spreading_factor", si->radio_spreading_factor);
-		obj.pushKV("radio_coding_rate", si->radio_coding_rate);
-		state.self_info = obj.write();
-		mqtt_send_self_info();
-		return;
-	}
+	pack->expected_responses = { PACKET_OK };
+	outgoing_commands.push_back(pack);
 
-	if (packet_type == PACKET_DEVICE_INFO && packlen >= sizeof(_PACKET_DEVICE_INFO)) {
-		_PACKET_DEVICE_INFO* di = (_PACKET_DEVICE_INFO*)pack;
-		UniValue obj(UniValue::VOBJ);
-		obj.pushKV("firmware_version", di->firmware_version);
-		obj.pushKV("max_contacts", (int)di->max_contacts_raw * 2);
-		obj.pushKV("max_channels", di->max_channels);
-		obj.pushKV("ble_pin", (int64)Get_ULE32(di->ble_pin));
-		obj.pushKV("firmware_build", trim_nulls(di->firmware_build, sizeof(di->firmware_build)));
-		obj.pushKV("model", trim_nulls(di->model, sizeof(di->model)));
-		obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-		obj.pushKV("client_repeat", di->client_repeat);
-		obj.pushKV("path_hash_mode", di->path_hash_mode);
-		state.device_info = obj.write();
-		mqtt_send_device_info();
-		return;
-	}
-
-	if (packet_type == PACKET_CHANNEL_INFO && packlen >= sizeof(_PACKET_CHANNEL_INFO)) {
-		_PACKET_CHANNEL_INFO* ci = (_PACKET_CHANNEL_INFO*)pack;
-
-		add_or_update_channel(ci);
-		mqtt_send_channel(ci->channel_index);
-
-		return;
-	}
-
-	if (packet_type == PACKET_OK) {
-		if (packlen >= 5) {
-			uint32 value = Get_ULE32(*(uint32*)(pack + 1));
-			mesh_log("Received OK reply with code %u to last command.\n", value);
-		} else {
-			mesh_log("Received OK reply to last command.\n");
-		}
-		return;
-	}
-
-	if (packet_type == PACKET_ACK) {
-		_PACKET_ACK* ack = (_PACKET_ACK*)pack;
-		return;
-	}
-
-	if (packet_type == PACKET_CONTACT_START) {
-		printf("Receiving contacts list...\n");
-		if (packlen >= 5) {
-			uint32 count = Get_ULE32(*(uint32*)(pack + 1));
-			printf("Receiving contacts list... (%u contacts)\n", count);
-		} else {
-			printf("Receiving contacts list...\n");
-		}
-		return;
-	}
-
-	if (packet_type == PACKET_CONTACT && packlen >= sizeof(_PACKET_CONTACT)) {
-		_PACKET_CONTACT* c = (_PACKET_CONTACT*)pack;
-		add_or_update_user(c);
-		return;
-	}
-
-	if (packet_type == PACKET_CONTACT_END) {
-		printf("End of contacts list.\n");
-		if (packlen >= 5) {
-			uint32 lastmod = Get_ULE32(*(uint32*)(pack + 1));
-			time_t ts = (time_t)lastmod;
-			struct tm tm;
-			localtime_r(&ts, &tm);
-#ifdef DEBUG
-			printf("Last mod time: %lld -> %s", (int64)ts, ctime(&ts));
-#endif			
-			state.lastContactModTime = (uint32)ts;
-		}
-
-		mqtt_send_contacts();
-		//state.lastContactListReceived = time(NULL);
-		return;
-	}
-
-	if (packet_type == PACKET_MSG_SENT) {
-		_PACKET_MSG_SENT* ms = (_PACKET_MSG_SENT*)pack;
-		printf("Message send %u acknowledged.\n", Get_ULE32(ms->tag));
-		return;
-	}
-
-	if (packet_type == PACKET_CURRENT_TIME) {
-	}
-
-	if (packet_type == PACKET_BATTERY) {
-	}
-
-	if (packet_type == PACKET_CONTACT_MSG_RECV && packlen >= sizeof(PACKET_CONTACT_MSG_RECV)) {
-		_PACKET_CONTACT_MSG_RECV* msg = (_PACKET_CONTACT_MSG_RECV*)pack;
-		UniValue obj(UniValue::VOBJ);
-		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
-		shared_ptr<MeshCoreUser> u;
-		if (get_user_by_pubkey_prefix(pubkey_prefix, u)) {
-			obj.pushKV("public_key", u->pubkey);
-		}
-		obj.pushKV("public_key_prefix", pubkey_prefix);
-		obj.pushKV("txt_type", (uint8)msg->text_type);
-		obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
-		obj.pushKV("path_length", msg->path_length);
-		char* text;
-		size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV);
-		if (msg->text_type == 2) { // signed text			
-			text = (char *)pack + sizeof(_PACKET_CONTACT_MSG_RECV);			
-		} else {
-			text = (char*)&msg->signature[0];
-			header_len -= 4;
-		}
-		obj.pushKV("message", trim_nulls(text, packlen - header_len));
-		//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-		mqtt_send(mprintf("%s/message/direct/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
-		return;
-	}
-
-	if (packet_type == PACKET_CONTACT_MSG_RECV_V3 && packlen >= sizeof(PACKET_CONTACT_MSG_RECV_V3)) {
-		_PACKET_CONTACT_MSG_RECV_V3* msg = (_PACKET_CONTACT_MSG_RECV_V3*)pack;
-		UniValue obj(UniValue::VOBJ);
-		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
-		shared_ptr<MeshCoreUser> u;
-		if (get_user_by_pubkey_prefix(pubkey_prefix, u)) {
-			obj.pushKV("public_key", u->pubkey);
-		}
-		obj.pushKV("public_key_prefix", pubkey_prefix);
-		obj.pushKV("txt_type", (uint8)msg->text_type);
-		obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
-		obj.pushKV("path_length", msg->path_length);
-		char* text;
-		size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV_V3);
-		if (msg->text_type == 2) { // signed text			
-			text = (char*)pack + sizeof(_PACKET_CONTACT_MSG_RECV_V3);
-		} else {
-			text = (char*)&msg->signature[0];
-			header_len -= 4;
-		}
-		obj.pushKV("message", trim_nulls(text, packlen - header_len));
-		//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-		mqtt_send(mprintf("%s/message/direct/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
-		return;
-	}
-
-	if (packet_type == PACKET_CHANNEL_MSG_RECV && packlen >= sizeof(PACKET_CHANNEL_MSG_RECV)) {
-		_PACKET_CHANNEL_MSG_RECV* msg = (_PACKET_CHANNEL_MSG_RECV*)pack;
-
-		UniValue obj(UniValue::VOBJ);
-		obj.pushKV("channel_index", msg->channel_index);
-		obj.pushKV("path_length", msg->path_length);
-		obj.pushKV("txt_type", (uint8)msg->text_type);
-		obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
-
-		char* text = (char*)pack + sizeof(_PACKET_CHANNEL_MSG_RECV);
-		string str = trim_nulls(text, packlen - sizeof(_PACKET_CHANNEL_MSG_RECV));
-		const char* p = strstr(str.c_str(), ": ");
-		if (p != NULL) {
-			obj.pushKV("from", str.substr(0, p - str.c_str()));
-			obj.pushKV("message", p + 2);
-			//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-			mqtt_send(mprintf("%s/message/channel/%u", config.mqtt.topic_prefix.c_str(), msg->channel_index), obj, false);
-		} else {
-			printf("Warning: unrecognized incoming channel message: %s\n", str.c_str());
-		}
-		return;
-	}
-
-	if (packet_type == PACKET_CHANNEL_MSG_RECV_V3 && packlen >= sizeof(PACKET_CHANNEL_MSG_RECV_V3)) {
-		_PACKET_CHANNEL_MSG_RECV_V3* msg = (_PACKET_CHANNEL_MSG_RECV_V3*)pack;
-
-		UniValue obj(UniValue::VOBJ);
-		obj.pushKV("channel_index", msg->channel_index);
-		obj.pushKV("path_length", msg->path_length);
-		obj.pushKV("txt_type", (uint8)msg->text_type);
-		obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
-
-		char* text = (char*)pack + sizeof(_PACKET_CHANNEL_MSG_RECV_V3);
-		string str = trim_nulls(text, packlen - sizeof(_PACKET_CHANNEL_MSG_RECV_V3));
-		const char* p = strstr(str.c_str(), ": ");
-		if (p != NULL) {
-			obj.pushKV("from", str.substr(0, p-str.c_str()));
-			obj.pushKV("message", p + 2);
-			//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-			mqtt_send(mprintf("%s/message/channel/%u", config.mqtt.topic_prefix.c_str(), msg->channel_index), obj, false);
-		} else {
-			printf("Warning: unrecognized incoming channel message: %s\n", str.c_str());
-		}
-		return;
-	}
-
-	if (packet_type == PACKET_NO_MORE_MSGS) {
-		state.lastMessageCheck = time(NULL);
-		return;
-	}
-
-	int x = 1;
+	queue_packet_get_channel_info(channel_idx);
 }
 
-
-void handleIncomingPackets() {
-	DSL_BUFFER& recvbuf = config.recvbuf;
-
-	while (recvbuf.len > 0) {
-		if (recvbuf.udata == NULL || recvbuf.len <= 0) {
-			break;
-		}
-
-		uint8* begin = (uint8*)memchr(recvbuf.udata, COMPANION_FRAME_START, recvbuf.len);
-		if (begin == NULL) {
-			// no frame start marker, clear the buffer
-			buffer_clear(&recvbuf);
-			break;
-		}
-
-		size_t offset = (begin - recvbuf.udata);
-		int64 datalen = recvbuf.len - offset;
-		if (datalen < COMPANION_FRAME_HEADER_SIZE) {
-			//don't yet have a whole header
-			break;
-		}
-
-		uint16 packlen = Get_ULE16(*(begin + 1));
-		if (packlen > COMPANION_MAX_FRAME_SIZE) {
-			//frame too long, probably junk data
-			buffer_remove_front(&recvbuf, offset + 1);
-		}
-
-		if (datalen < packlen + COMPANION_FRAME_HEADER_SIZE) {
-			//don't yet have all the data yet
-			break;
-		}
-
-		handleIncomingPacket(begin + COMPANION_FRAME_HEADER_SIZE, packlen);
-
-		buffer_remove_front(&recvbuf, COMPANION_FRAME_HEADER_SIZE + packlen);
+void queue_packet_erase_channel(uint8 channel_idx) {
+	if (channel_idx > MESHCORE_HIGHEST_CHANNEL) {
+		printf("Error in queue_packet_erase_channel(): invalid channel_index!\n");
+		return;
 	}
+
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, 0x20);
+	buffer_append_int<uint8>(&buf, channel_idx);
+	char name[MESHCORE_MAX_CHAN_LEN + 1] = { 0 };
+	buffer_append(&buf, name, MESHCORE_MAX_CHAN_LEN);
+	uint8 keybin[MESHCORE_CHAN_SECRET_LEN / 2];
+	buffer_append(&buf, (const char*)keybin, sizeof(keybin));
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+
+	pack->expected_responses = { PACKET_OK };
+	outgoing_commands.push_back(pack);
+
+	queue_packet_get_channel_info(channel_idx);
+}
+
+void queue_swap_channels(uint8 channel_idx_1, uint8 channel_idx_2) {
+	if (channel_idx_1 > MESHCORE_HIGHEST_CHANNEL || channel_idx_2 > MESHCORE_HIGHEST_CHANNEL) {
+		printf("Error in queue_swap_channels(): invalid channel_index!\n");
+		return;
+	}
+
+	if (channel_idx_1 == channel_idx_2) {
+		printf("Error in queue_swap_channels(): no point in swapping a channel with itself!\n");
+		return;
+	}
+
+	shared_ptr<MeshCoreChannel> c1, c2;
+	if (!get_channel(channel_idx_1, c1)) {
+		printf("Error in queue_swap_channels(): I don't have info for channel index %u!\n", channel_idx_1);
+		return;
+	}
+
+	if (!get_channel(channel_idx_2, c2)) {
+		printf("Error in queue_swap_channels(): I don't have info for channel index %u!\n", channel_idx_2);
+		return;
+	}
+
+	queue_packet_set_channel_config(c2->channel_index, c1->name, c1->secret);
+	queue_packet_set_channel_config(c1->channel_index, c2->name, c2->secret);
 }
 
 void meshcore_work() {
@@ -644,6 +462,9 @@ void meshcore_work() {
 
 				buffer_append(&config.sendbuf, cur->data.c_str(), cur->data.length());
 				mesh_log("Writing command with %zu bytes...\n", cur->data.length());
+				if (config.meshcore.log_to_console) {
+					PrintData(stdout, (const uint8*)cur->data.c_str(), cur->data.length());
+				}
 				if (config.meshcore.log_fp != NULL) {
 					PrintData(config.meshcore.log_fp, (const uint8 *)cur->data.c_str(), cur->data.length());
 				}
@@ -697,4 +518,26 @@ void meshcore_work() {
 			safe_sleep(100, true);
 		}
 	}
+}
+
+string DeriveChannelKey(const string& channelName) {
+	if (channelName == "Public") {
+		return "\x8b\x33\x87\xe9\xc5\xcd\xea\x6a\xc9\xe5\xed\xba\xa1\x15\xcd\x72";
+	}
+
+	char* tmp = strdup(channelName.c_str());
+	strtrim(tmp);
+	string input = (tmp[0] == '#') ? tmp : string("#") + tmp;
+	free(tmp);
+
+	char key[33] = { 0 };
+	if (!hashdata("sha256", (const uint8*)input.c_str(), input.length(), key, sizeof(key), true)) {
+		return "";
+	}
+
+	return string(key, MESHCORE_CHAN_SECRET_LEN / 2);
+}
+
+bool MeshCoreCommand::expectsAck() {
+	return (dynamic_cast<MeshCoreCommandAcknowledged *>(this) != NULL);
 }

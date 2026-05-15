@@ -27,13 +27,19 @@
     <ClCompile Include="meshcore.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="incoming_commands.cpp">
+    <ClCompile Include="mqtt_incoming.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="contacts.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="channels.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="meshcore_incoming.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

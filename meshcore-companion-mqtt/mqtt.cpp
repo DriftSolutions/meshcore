@@ -34,6 +34,9 @@ void mqtt_log(const char* fmt, ...) {
 		}
 		if (config.mqtt.log_fp != NULL) {
 			vfprintf(config.mqtt.log_fp, fmt, va);
+#ifdef DEBUG
+			fflush(config.mqtt.log_fp);
+#endif
 		}
 	}
 

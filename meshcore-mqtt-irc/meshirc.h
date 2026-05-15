@@ -3,6 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#ifndef ENABLE_SQLITE
+#define ENABLE_SQLITE
+#endif
+
 #include "../libmeshcoremqttclient/meshcoremqttclient.h"
 
 #define MQTT_IRC_VERSION "0.0.1"
@@ -250,8 +254,9 @@ public:
 	}
 };
 extern list<shared_ptr<Client>> clients;
-void SendLineToAllAuthenticatedClients(const vector<string>& parms);
+//extern DB_SQLite * db;
 
+bool SendLineToAllAuthenticatedClients(const vector<string>& parms);
 
 class MQTT_IRC_Client : public MeshCore_MQTT_Client {
 public:
@@ -270,6 +275,7 @@ public:
 	void onChannelMessage(int channel_idx, const string& from, const string& text, int txt_type, int hops, const UniValue& payload);
 	void onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload);
 	void onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type);
+	void onStatusResponse(const string& pubkey_prefix, const string& status_data);
 };
 
 class CONFIG {
@@ -312,7 +318,7 @@ public:
 		uint16 port = 1883;
 		string username;
 		string password;
-		string topic_prefix = "meshcore";
+		string topic_prefix = "meshmqtt";
 
 		MQTT_IRC_Client * client = NULL;
 #ifdef DEBUG
@@ -327,7 +333,13 @@ public:
 };
 extern CONFIG config;
 
+bool db_init();
+void db_quit();
+bool AddOfflineMessage(const vector<string>& parms);
+void SendOfflineMessages(Client * cli);
+
 string get_sanitized_nick(const string& str);
+string get_channel_name_from_meshcore(const string& name);
 int64 parse_duration_str(const string& str);
 //string get_channel_key_from_name(const string& channel_name);
 

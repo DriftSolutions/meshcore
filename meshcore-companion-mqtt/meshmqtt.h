@@ -20,7 +20,13 @@
 #define MESHCORE_MAX_CHAN_LEN 32
 #define MESHCORE_PUBKEY_LEN 64
 #define MESHCORE_PUBKEY_PREFIX_LEN 12
-#define MESHCORE_SECRET_LEN 64
+#define MESHCORE_CHAN_SECRET_LEN 32
+#define MESHCORE_MAX_CHAN_DATAGRAM_LENGTH 163
+
+#define COMPANION_FRAME_START 0x3E
+#define COMPANION_OUTGOING_FRAME_START 0x3C
+#define COMPANION_FRAME_HEADER_SIZE 3
+#define COMPANION_MAX_FRAME_SIZE 300
 
 #include "meshcore_protocol.h"
 
@@ -120,7 +126,7 @@ private:
 public:
 	int channel_index = -1;
 	char name[MESHCORE_MAX_CHAN_LEN + 1];
-	char secret[MESHCORE_SECRET_LEN + 1];
+	char secret[MESHCORE_CHAN_SECRET_LEN + 1];
 
 	void ToUniValue(UniValue& obj);
 };
@@ -132,6 +138,8 @@ public:
 	string cmd;
 	UniValue parms;
 };
+
+class MeshCoreCommandAcknowledged;
 
 class MeshCoreCommand {
 public:
@@ -151,24 +159,28 @@ public:
 
 	virtual void onError(uint8 code) {} // called when an ERROR response is received
 
+	virtual bool expectsAck();
+
 	//bool is_critical_command = false;
 };
 
-class MeshCoreCommandChannelMessage : public MeshCoreCommand {
-private:
+class MeshCoreCommandAcknowledged : public MeshCoreCommand {
+public:
 	uint8 attempt = 0;
+	uint32 expected_tag = 0;
 
-	virtual void onError(uint8 code);
+	virtual void onAck() {};
+	virtual void onTimeOut() {};
+	virtual void onSent(uint32 tag) {};
 };
 
-class MeshCoreCommandDirectMessage : public MeshCoreCommand {
-private:
-	uint8 attempt = 0;
-
-	virtual void onError(uint8 code);
+class MeshCoreCommandDirectMessage : public MeshCoreCommandAcknowledged {
+public:
+	virtual void onTimeOut();
 };
 
 extern list<shared_ptr<MeshCoreCommand>> outgoing_commands;
+extern map<uint32, shared_ptr<MeshCoreCommand>> outgoing_messages;
 extern shared_ptr<MeshCoreCommand> current_outgoing_command;
 
 class CONFIG {
@@ -256,6 +268,8 @@ struct MESHCORE_STATE {
 extern MESHCORE_STATE state;
 
 void meshcore_work();
+void mesh_log(const char* fmt, ...);
+
 void handle_incoming_commands();
 bool mqtt_connect();
 void mqtt_disconnect();
@@ -268,8 +282,10 @@ string trim_nulls(const string& str);
 string trim_nulls(const char* str, size_t len);
 
 void add_or_update_channel(_PACKET_CHANNEL_INFO* ci);
+bool get_channel(int channel_idx, shared_ptr<MeshCoreChannel>& c);
 bool mqtt_send_channels();
 bool mqtt_send_channel(int idx);
+string DeriveChannelKey(const string& channelName);
 
 void add_or_update_user(_PACKET_CONTACT * c);
 bool get_user_by_pubkey(const string& pubkey, shared_ptr<MeshCoreUser>& u);
@@ -281,13 +297,25 @@ bool mqtt_send_new_contact(shared_ptr<MeshCoreUser>& u);
 
 void queue_packet_app_start();
 void queue_packet_device_query();
+void queue_packet_battery_info();
+void queue_packet_get_message();
 void queue_packet_set_time(int64 ts = 0); // if ts <= 0 then we'll use time(NULL)
 void queue_packet_get_channel_info(uint8 index);
 void queue_packets_get_channels();
 void queue_packet_send_channel_msg(uint8 channel_idx, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& str, uint8 attempt, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
-bool is_valid_destination(const string& destination);
-void update_contacts(bool force_get_all);
+void queue_packet_send_status_request(const string& pubkey);
+void queue_packet_set_channel_config(uint8 channel_idx, const string& channelName, const string& secret_key);
+void queue_packet_erase_channel(uint8 channel_idx);
+void queue_swap_channels(uint8 channel_idx_1, uint8 channel_idx_2);
+void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const uint8 * data, size_t data_length);
+void queue_packet_direct_datagram(const string& pubkey_or_prefix, uint16 data_type, const uint8* data, size_t data_length);
 
+void handleIncomingPackets();
+void remove_outgoing_message(uint32 tag);
+
+bool is_valid_destination(const string& destination); // accepts pubkey or pubkey_prefix
+bool is_valid_pubkey(const string& destination);
+void update_contacts(bool force_get_all);
 
 #pragma once

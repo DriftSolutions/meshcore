@@ -46,6 +46,9 @@ void MQTT_IRC_Client::printLog(const string& str) {
 		}
 		if (config.mqtt.log_fp != NULL) {
 			fprintf(config.mqtt.log_fp, "%s\n", str.c_str());
+#ifdef DEBUG
+			fflush(config.mqtt.log_fp);
+#endif
 		}
 	}
 }
@@ -141,6 +144,8 @@ void MQTT_IRC_Client::onChannelMessage(int channel_idx, const string& from, cons
 		}
 	}
 
+	printf("[mqtt] [%s] <%s> %s\n", chan->irc_name, user->irc_nick, text.c_str());
+
 	user->updateSeen(hops);
 
 	vector<string> lines;
@@ -157,9 +162,11 @@ void MQTT_IRC_Client::onDirectMessage(const string& pubkey_prefix, const string&
 
 	shared_ptr<MeshCoreUser> user;
 	if (!get_user_by_pubkey_prefix(pubkey_prefix, user)) {
-		printf("[mqtt] Could not find user with pubkey_prefix %s", pubkey_prefix.c_str());
+		printf("[mqtt] Could not find user with pubkey_prefix %s\n", pubkey_prefix.c_str());
 		return;
 	}
+
+	printf("[mqtt] [DM] <%s> %s\n", user->irc_nick, text.c_str());
 
 	vector<string> lines;
 	split_incoming_into_lines(text, lines);
@@ -170,7 +177,9 @@ void MQTT_IRC_Client::onDirectMessage(const string& pubkey_prefix, const string&
 			config.self_user->irc_nick,
 			line
 		};
-		SendLineToAllAuthenticatedClients(parms);
+		if (!SendLineToAllAuthenticatedClients(parms)) {
+			AddOfflineMessage(parms);
+		}
 	}
 
 	user->updateSeen(hops);
@@ -195,6 +204,8 @@ void MQTT_IRC_Client::onDirectMessageOnMQTT(const string& destination, const str
 		}
 	}
 
+	printf("[mqtt] [DM] <%s> %s\n", user->irc_nick, text.c_str());
+
 	vector<string> lines;
 	split_incoming_into_lines(text, lines);
 	for (auto& line : lines) {
@@ -209,6 +220,22 @@ void MQTT_IRC_Client::onDirectMessageOnMQTT(const string& destination, const str
 	}
 
 	config.self_user->onAction();
+}
+
+void MQTT_IRC_Client::onStatusResponse(const string& pubkey_prefix, const string& status_data) {
+	shared_ptr<MeshCoreUser> user;
+	if (!get_user_by_pubkey_prefix(pubkey_prefix, user)) {
+		printf("[mqtt] Could not find user with pubkey_prefix %s\n", pubkey_prefix.c_str());
+		return;
+	}
+
+	vector<string> parms = {
+		":" + user->hostmask,
+		"PRIVMSG",
+		config.self_user->irc_nick,
+		"\x01PONG Status response received from " + pubkey_prefix + "\x01"
+	};
+	SendLineToAllAuthenticatedClients(parms);
 }
 
 void mosquitto_loop() {

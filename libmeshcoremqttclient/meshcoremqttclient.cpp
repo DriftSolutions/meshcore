@@ -158,6 +158,15 @@ void MeshCore_MQTT_Client::_handle_self_info(const UniValue& payload) {
 	}
 }
 
+void MeshCore_MQTT_Client::_handle_battery_info(const UniValue& payload) {
+	if (payload.exists("millivolts") && payload["millivolts"].isNum() && payload.exists("used_storage") && payload["used_storage"].isNum() && payload.exists("total_storage") && payload["total_storage"].isNum()) {
+		uint16 millivolts = (uint16)payload["millivolts"].get_int();
+		uint32 used_storage = (uint32)payload["used_storage"].get_int64();
+		uint32 total_storage = (uint32)payload["total_storage"].get_int64();
+		onBatteryAndStorageInfo(millivolts, used_storage, total_storage);
+	}
+}
+
 void MeshCore_MQTT_Client::_handle_chan_info(const UniValue& payload) {
 	int idx = (payload.exists("channel_index") && payload["channel_index"].isNum()) ? payload["channel_index"].get_int() : -1;
 	if (idx < 0 || idx > MESHCORE_HIGHEST_CHANNEL) {
@@ -167,23 +176,22 @@ void MeshCore_MQTT_Client::_handle_chan_info(const UniValue& payload) {
 
 	if (payload.exists("name") && payload["name"].isStr()) {
 		string name = payload["name"].get_str();
-		if (!name.empty()) {
-			bool is_private = false; // is this channel one with custom channel key (not the Public channel or standard derived key)
+		bool is_private = false; // is this channel one with custom channel key (not the Public channel or standard derived key)
 
-			string key = (payload.exists("secret") && payload["secret"].isStr()) ? payload["secret"].get_str() : "";
-			if (key.length() == 32) {
+		string key = (payload.exists("secret") && payload["secret"].isStr()) ? payload["secret"].get_str() : "";
+		if (key.length() == 32) {
+			uint8 bin[16];
+			hex2bin(key.c_str(), key.length(), bin, sizeof(bin));
 
-				uint8 bin[16];
-				hex2bin(key.c_str(), key.length(), bin, sizeof(bin));
-
+			if (!name.empty()) {
 				string derived = DeriveChannelKey(name);
 				if (memcmp(bin, derived.c_str(), sizeof(bin))) {
 					is_private = true;
 				}
 			}
-
-			onChanInfo(idx, name, is_private, payload);
 		}
+
+		onChanInfo(idx, name, is_private, payload);
 	}
 
 	if (idx == MESHCORE_HIGHEST_CHANNEL) {
@@ -242,11 +250,13 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 
 	onRecv(topic, (const char*)raw_payload, payloadlen);
 
-	static const string prefix_advertisement = topic_prefix + "/advertisement";
+	static const string prefix_advertisement = topic_prefix + "/advertisement";	
 	static const string prefix_self = topic_prefix + "/self_info";
+	static const string prefix_battery_info = topic_prefix + "/battery_info";
 	static const string prefix_chan_info = topic_prefix + "/channel_info/";
 	static const string prefix_chan = topic_prefix + "/message/channel/";
 	static const string prefix_dir = topic_prefix + "/message/direct/";
+	static const string prefix_status_response = topic_prefix + "/status_response/";
 	static const string prefix_contacts = topic_prefix + "/contacts";
 	static const string prefix_new_contact = topic_prefix + "/new_contact";
 	static const string prefix_my_own_chan_messages = topic_prefix + "/command/send_chan_msg";
@@ -317,6 +327,11 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		return;
 	}
 
+	if (topic == prefix_battery_info) {
+		_handle_battery_info(payload);
+		return;
+	}
+
 	if (topic == prefix_contacts) {
 		for (const auto& k : payload.getKeys()) {
 			_handle_contact(payload[k]);
@@ -354,6 +369,15 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		return;
 	}
 
+	if (!strnicmp(topic, prefix_status_response.c_str(), prefix_status_response.length())) {
+		string from = payload.exists("public_key_prefix") && payload["public_key_prefix"].isStr() ? payload["public_key_prefix"].get_str() : "";
+		string text = payload.exists("status_data") && payload["status_data"].isStr() ? payload["status_data"].get_str() : "";
+		if (from.empty()) { return; }
+
+		onStatusResponse(from, text);
+		return;
+	}	
+
 	int x = 1;
 }
 
@@ -372,6 +396,12 @@ bool MeshCore_MQTT_Client::RequestChannels() {
 bool MeshCore_MQTT_Client::RequestSelfInfo() {
 	UniValue payload(UniValue::VOBJ);
 	string topic = string(topic_prefix) + "/command/get_self_info";
+	return Send(topic, payload);
+}
+
+bool MeshCore_MQTT_Client::RequestBatteryAndStorageInfo() {
+	UniValue payload(UniValue::VOBJ);
+	string topic = string(topic_prefix) + "/command/get_battery_info";
 	return Send(topic, payload);
 }
 
@@ -503,6 +533,88 @@ bool MeshCore_MQTT_Client::SendChannelMsg(int idx, const string& str, int txt_ty
 	return ret;
 }
 
+bool MeshCore_MQTT_Client::SendChannelDatagram(int idx, const string& data, uint16 data_type) {
+	if (!connected || data.empty() || data_type == 0 || data_type == 0xFFFF || idx < 0 || idx > MESHCORE_HIGHEST_CHANNEL) {
+		return false;
+	}
+	if (idx == 0) {
+		printf("Error: Attempted to send to channel 0!\n");
+		return false;
+	}
+
+	string topic = string(topic_prefix) + "/command/send_channel_datagram";
+	string hex_data = bin2hex((const uint8*)data.c_str(), data.length());
+
+	UniValue payload(UniValue::VOBJ);
+	payload.pushKV("channel_index", idx);
+	payload.pushKV("data_type", data_type);
+	payload.pushKV("data", hex_data);
+
+	Log("Sending channel datagram to channel %d (type: %04X, Bytes: %u): %s", idx, data_type, data.length(), hex_data.c_str());
+
+	return Send(topic, payload);
+}
+
+bool MeshCore_MQTT_Client::SetChannelConfig(int channel_index, const string& name, const string& secret_key) {
+	if (!connected || channel_index < 0 || channel_index > MESHCORE_HIGHEST_CHANNEL || name.empty()) {
+		return false;
+	}
+
+	string key;
+	if (key.empty() && name != "Public" && name[0] != '#') {
+		return false;
+	}
+
+	string topic = string(topic_prefix) + "/command/set_channel_config";
+
+	UniValue payload(UniValue::VOBJ);
+	payload.pushKV("channel_index", channel_index);
+	payload.pushKV("channel_name", name);
+	payload.pushKV("secret_key", key);
+
+	return Send(topic, payload);
+}
+
+bool MeshCore_MQTT_Client::EraseChannel(int channel_index) {
+	if (!connected || channel_index < 0 || channel_index > MESHCORE_HIGHEST_CHANNEL) {
+		return false;
+	}
+
+	string topic = string(topic_prefix) + "/command/erase_channel";
+
+	UniValue payload(UniValue::VOBJ);
+	payload.pushKV("channel_index", channel_index);
+
+	return Send(topic, payload);
+}
+
+bool MeshCore_MQTT_Client::SwapChannelConfig(int channel_index_1, int channel_index_2) {
+	if (!connected || channel_index_1 < 0 || channel_index_1 > MESHCORE_HIGHEST_CHANNEL || channel_index_2 < 0 || channel_index_2 > MESHCORE_HIGHEST_CHANNEL) {
+		return false;
+	}
+
+	string topic = string(topic_prefix) + "/command/swap_channels";
+
+	UniValue payload(UniValue::VOBJ);
+	payload.pushKV("channel_index_1", channel_index_1);
+	payload.pushKV("channel_index_2", channel_index_2);
+
+	return Send(topic, payload);
+}
+
+bool MeshCore_MQTT_Client::SendStatusRequest(const string& pubkey) {
+	if (!connected || pubkey.empty()) {
+		return false;
+	}
+
+	string topic = string(topic_prefix) + "/command/send_status_request";
+
+	UniValue payload(UniValue::VOBJ);
+	payload.pushKV("public_key", pubkey);
+
+	return Send(topic, payload);
+}
+
 void split_msg_for_privmsg(const char* str, vector<string>& lines) {
 	_get_split_into_lines(str, lines, 133 - NOTICE_PREFIX_LEN);
 }
@@ -541,6 +653,24 @@ bool MeshCore_MQTT_Client::SendDirectMsg(const string& pubkey, const string& str
 	return ret;
 }
 
+bool MeshCore_MQTT_Client::SendDirectDatagram(const string& pubkey, const string& data, uint16 data_type) {
+	if (!connected || data.empty() || data_type == 0 || data_type == 0xFFFF || pubkey.empty()) {
+		return false;
+	}
+
+	string topic = string(topic_prefix) + "/command/send_direct_datagram";
+	string hex_data = bin2hex((const uint8*)data.c_str(), data.length());
+
+	UniValue payload(UniValue::VOBJ);
+	payload.pushKV("destination", pubkey);
+	payload.pushKV("data_type", data_type);
+	payload.pushKV("data", hex_data);
+
+	Log("Sending direct datagram to %s (type: %04X, Bytes: %u): %s", pubkey.c_str(), data_type, data.length(), hex_data.c_str());
+
+	return Send(topic, payload);
+}
+
 string MeshCore_MQTT_Client::DeriveChannelKey(const string& channelName) {
 	if (channelName == "Public") {
 		return "\x8b\x33\x87\xe9\xc5\xcd\xea\x6a\xc9\xe5\xed\xba\xa1\x15\xcd\x72";
@@ -556,5 +686,5 @@ string MeshCore_MQTT_Client::DeriveChannelKey(const string& channelName) {
 		return "";
 	}
 
-	return string(key, 16);
+	return string(key, MESHCORE_CHAN_SECRET_LEN / 2);
 }

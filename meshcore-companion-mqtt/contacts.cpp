@@ -44,6 +44,7 @@ void add_or_update_user(_PACKET_CONTACT* c) {
 			p = (char*)FirstInvalidUTF8(name);
 		}
 		if (name[0] == 0) {
+			printf("Ignoring user %s - nothing left after invalid UTF-8\n", trim_nulls(c->adv_name).c_str());
 			return;
 		}
 	}

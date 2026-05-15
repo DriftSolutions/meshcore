@@ -23,6 +23,7 @@
 #define MESHCORE_MAX_CHAN_LEN 32
 #define MESHCORE_PUBKEY_LEN 64
 #define MESHCORE_PUBKEY_PREFIX_LEN 12
+#define MESHCORE_CHAN_SECRET_LEN 32
 
 #ifdef __MESHCORE_MQTT_CLIENT_INTERNAL__
 #define LIBMOSQUITTO_STATIC
@@ -62,6 +63,8 @@ private:
 	void _handle_advertisement(const UniValue& payload);
 	void _handle_self_info(const UniValue& payload);
 	void _handle_chan_info(const UniValue& payload);
+	void _handle_battery_info(const UniValue& payload);
+
 public:
 	MeshCore_MQTT_Client(const string& phost, uint16 pport = 1883, const string& pusername = "", const string& ppasspord = "", const string& ptopic_prefix = "meshcore");
 
@@ -80,11 +83,27 @@ public:
 
 
 	bool SendChannelMsg(int channel_idx, const string& str, int txt_type = 0);
+	bool SendChannelDatagram(int channel_idx, const string& data, uint16 data_type); // data_type can be anything except 0 or 0xFFFF. Maximum data length: 163 bytes
 	bool SendDirectMsg(const string& pubkey, const string& str, int txt_type = 0);
+	bool SendDirectDatagram(const string& pubkey, const string& data, uint16 data_type); // data_type can be anything except 0 or 0xFFFF
+	bool SendStatusRequest(const string& pubkey);
+
+	/**
+	* If the channel starts with # or the case-sensitive string "Public" and secret_key == "", then we will derive the key automatically. Otherwise will return false.
+	* secret_key should be a hex string
+	*/
+	bool SetChannelConfig(int channel_index, const string& name, const string& secret_key = "");
+	bool EraseChannel(int channel_index);
+	/**
+	* Swaps the channel config between two slots.
+	* WARNING: This will use the most recent cached config in meshcore-companion-mqtt. If you just recently modified either of the channel slots it may be out of date.
+	*/
+	bool SwapChannelConfig(int channel_index_1, int channel_index_2);
 
 	bool RequestContacts();
 	bool RequestChannels();
 	bool RequestSelfInfo();
+	bool RequestBatteryAndStorageInfo();
 	void Log(const char* fmt, ...);
 
 	/**
@@ -107,6 +126,8 @@ public:
 	virtual void onChannelMessage(int channel_idx, const string& from, const string& text, int txt_type, int hops, const UniValue& payload) {}
 	virtual void onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload) {}
 	virtual void onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type) {} // this is called when DMs are seen on MQTT from other instances connected to MQTT
+	virtual void onStatusResponse(const string& pubkey_prefix, const string& status_data) {}
+	virtual void onBatteryAndStorageInfo(uint16 millivolts, uint32 used_storage, uint32 total_storage) {}
 
 	// Internal callbacks
 	void cbConnected();

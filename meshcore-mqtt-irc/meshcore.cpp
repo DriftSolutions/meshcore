@@ -22,9 +22,6 @@ void MeshCoreUser::updateMeshCorePubKeyPrefix(const string& pubkey_prefix) {
 
 void MeshCoreUser::updateSeen(int hops) {
 	_last_seen = time(NULL);
-	if (hops != UNKNOWN_HOPS && hops != -1) {
-		printf("hops: %d\n", hops);
-	}
 	if (hops == 0xFF) {
 		// direct send
 		hops = 0;
@@ -53,6 +50,5 @@ void MeshCoreUser::updateHostmask() {
 
 void MeshCoreChannel::setNameFromMeshCore(const string& name) {	
 	sstrcpy(_meshcore_name, name.c_str());
-	sstrcpy(_irc_name, "#");
-	sstrcat(_irc_name, get_sanitized_nick(name[0] == '#' ? name.substr(1) : name).c_str());
+	sstrcpy(_irc_name, get_channel_name_from_meshcore(name).c_str());	
 }
