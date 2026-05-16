@@ -21,6 +21,39 @@ const char* GetMeshCoreErrorString(uint8 code) {
 	}
 }
 
+class DuplicateRecord {
+public:
+	uint64 ticks = time(NULL);
+	string str;
+
+	DuplicateRecord(const string& pstr) {
+		str = pstr;
+	}
+};
+
+bool is_duplicate(uint8* pack, uint16 packlen, bool dont_add_record = false) {
+	static list<DuplicateRecord> dupes;
+
+	string str((const char*)pack, packlen);
+	
+	uint64 ts_expires = GetTickCount64() - 10000;
+	for (auto x = dupes.begin(); x != dupes.end();) {
+		if (x->ticks < ts_expires) {
+			x = dupes.erase(x);
+		} else if (x->str == str) {
+			return true;
+		} else {
+			x++;
+		}
+	}
+
+	if (!dont_add_record) {
+		dupes.push_back(DuplicateRecord(str));
+	}
+
+	return false;
+}
+
 void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 	const MESHCORE_RESPONSE_CODES& packet_type = (MESHCORE_RESPONSE_CODES)pack[0];
 
@@ -300,6 +333,10 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV && packlen >= sizeof(RESPONSE_CODE_CONTACT_MSG_RECV)) {
+		if (is_duplicate(pack, packlen)) {
+			return;
+		}
+
 		_PACKET_CONTACT_MSG_RECV* msg = (_PACKET_CONTACT_MSG_RECV*)pack;
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
@@ -326,6 +363,10 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV_V3 && packlen >= sizeof(_PACKET_CONTACT_MSG_RECV_V3)) {
+		if (is_duplicate(pack, packlen)) {
+			return;
+		}
+
 		_PACKET_CONTACT_MSG_RECV_V3* msg = (_PACKET_CONTACT_MSG_RECV_V3*)pack;
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
@@ -363,6 +404,10 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV && packlen >= sizeof(RESPONSE_CODE_CHANNEL_MSG_RECV)) {
+		if (is_duplicate(pack, packlen)) {
+			return;
+		}
+
 		_PACKET_CHANNEL_MSG_RECV* msg = (_PACKET_CHANNEL_MSG_RECV*)pack;
 
 		UniValue obj(UniValue::VOBJ);
@@ -386,6 +431,10 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV_V3 && packlen >= sizeof(RESPONSE_CODE_CHANNEL_MSG_RECV_V3)) {
+		if (is_duplicate(pack, packlen)) {
+			return;
+		}
+
 		_PACKET_CHANNEL_MSG_RECV_V3* msg = (_PACKET_CHANNEL_MSG_RECV_V3*)pack;
 
 		UniValue obj(UniValue::VOBJ);
@@ -409,7 +458,12 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == RESPONSE_CODE_CHANNEL_DATA_RECV && packlen > sizeof(_PACKET_CHANNEL_DATA_RECV)) {
+		if (is_duplicate(pack, packlen)) {
+			return;
+		}
+
 		_PACKET_CHANNEL_DATA_RECV* msg = (_PACKET_CHANNEL_DATA_RECV*)pack;
+
 		uint8* data = (uint8*)pack + sizeof(_PACKET_CHANNEL_DATA_RECV);
 		size_t len = packlen - sizeof(_PACKET_CHANNEL_DATA_RECV);
 		string str = bin2hex(data, len);

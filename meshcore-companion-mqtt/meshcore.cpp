@@ -192,9 +192,9 @@ void MeshCoreCommandDirectMessage::onTimeOut() {
 		pack->data[2] = pack->attempt;
 		pack->time_limit = GetTickCount64() + 5000;
 		outgoing_commands.push_front(pack);
-		printf("Retrying direct message, retry number %u ...\n", pack->attempt);
+		printf("[meshcore] Retrying direct message, retry number %u ...\n", pack->attempt);
 	} else {
-		printf("Giving up on direct message, retry limit hit...\n");
+		printf("[meshcore] Giving up on direct message, retry limit hit...\n");
 	}
 }
 
@@ -204,9 +204,9 @@ void MeshCoreCommandStdRetry::onTimeOut() {
 		pack->attempt++;
 		pack->time_limit = GetTickCount64() + 5000;
 		outgoing_commands.push_front(pack);
-		printf("Retrying command %s: retry number %u ...\n", GetMeshCoreCommandString(getType()).c_str(), pack->attempt);
+		printf("[meshcore] Retrying command %s: retry number %u ...\n", GetMeshCoreCommandString(getType()).c_str(), pack->attempt);
 	} else {
-		printf("Giving up on command %s, retry limit hit...\n", GetMeshCoreCommandString(getType()).c_str());
+		printf("[meshcore] Giving up on command %s, retry limit hit...\n", GetMeshCoreCommandString(getType()).c_str());
 	}
 }
 
@@ -513,7 +513,7 @@ void meshcore_work() {
 			auto& cur = current_outgoing_command;
 			if (GetTickCount64() > cur->time_limit) {
 				//give up on this command :(
-				printf("Outgoing command %02x timed out while waiting for a reply!\n", cur->getType());
+				printf("[meshcore] Outgoing command %s timed out while waiting for a reply!\n", GetMeshCoreCommandString(cur->getType()).c_str());
 				current_outgoing_command.reset();
 			}
 		}
@@ -523,7 +523,7 @@ void meshcore_work() {
 			if (n > 0) {
 				buffer_remove_front(&config.sendbuf, n);
 			} else if (n < 0) {
-				printf("Error writing to I/O driver!\n");
+				printf("[meshcore] Error writing to I/O driver!\n");
 				config.io_driver->Close();
 				return;
 			}
@@ -537,7 +537,7 @@ void meshcore_work() {
 		} else if (n == 0) {
 			safe_sleep(1, true);
 		} else if (n < 0) {
-			printf("Error reading from I/O driver!\n");
+			printf("[meshcore] Error reading from I/O driver!\n");
 			config.io_driver->Close();
 		}
 	} else {
