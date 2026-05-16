@@ -16,7 +16,7 @@ SET(LIBS pthread curl)
 SET(DSL_DIRECTORY ${PROJECT_SOURCE_DIR}/DSL/dslsrc)
 include_directories(${DSL_DIRECTORY})
 
-add_definitions(-pthread -Wall -D_REENTRANT -D_THREAD_SAFE -D_POSIX_C_SOURCE=200112 -D_FORTIFY_SOURCE=2 -D_FILE_OFFSET_BITS=64 -DENABLE_LIBEVENT)
+add_definitions(-pthread -Wall -D_REENTRANT -D_THREAD_SAFE -D_POSIX_C_SOURCE=200112 -D_FORTIFY_SOURCE=2 -D_FILE_OFFSET_BITS=64 -DENABLE_LIBEVENT -DENABLE_SQLITE)
 
 SET(DSL_SHARED 0)
 SET(LIBS ${LIBS} dl)
@@ -48,6 +48,11 @@ pkg_search_module(LIBMOSQUITTO REQUIRED libmosquitto)
 include_directories(${LIBMOSQUITTO_INCLUDE_DIRS})
 link_directories(${LIBMOSQUITTO_LIBRARY_DIRS})
 SET(LIBS ${LIBS} ${LIBMOSQUITTO_LIBRARIES})
+
+pkg_search_module(SQLITE REQUIRED sqlite3 sqlite)
+include_directories(${SQLITE_INCLUDE_DIRS})
+link_directories(${SQLITE_LIBRARY_DIRS})
+SET(LIBS ${LIBS} ${SQLITE_LIBRARIES})
 
 add_subdirectory (DSL)
 SET(LIBS ibdsl ${LIBS})
