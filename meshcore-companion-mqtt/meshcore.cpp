@@ -11,10 +11,27 @@ shared_ptr<MeshCoreCommand> current_outgoing_command;
 
 void handleIncomingPackets();
 
+/*
 void remove_outgoing_message(uint32 tag) {
 	auto x = outgoing_messages.find(tag);
 	if (x != outgoing_messages.end()) {
 		outgoing_messages.erase(x);
+	}
+}
+*/
+
+void timeout_outgoing_messages() {
+	uint64 ticks = GetTickCount64();
+	for (auto x = outgoing_messages.begin(); x != outgoing_messages.end();) {
+		if (ticks > x->second->time_limit) {
+			auto dm = dynamic_cast<MeshCoreCommandAcknowledged*>(x->second.get());
+			if (dm != NULL) {
+				dm->onTimeOut();
+			}
+			x = outgoing_messages.erase(x);
+		} else {
+			x++;
+		}
 	}
 }
 
@@ -171,10 +188,23 @@ void MeshCoreCommandDirectMessage::onTimeOut() {
 		auto pack = make_shared<MeshCoreCommandDirectMessage>(*this);
 		pack->attempt++;
 		pack->data[2] = pack->attempt;
+		pack->time_limit = GetTickCount64() + 5000;
 		outgoing_commands.push_front(pack);
 		printf("Retrying direct message, retry number %u ...\n", pack->attempt);
 	} else {
-		printf("Giving on direct message, retry limit hit...\n");
+		printf("Giving up on direct message, retry limit hit...\n");
+	}
+}
+
+void MeshCoreCommandStdRetry::onTimeOut() {
+	if (attempt < 3) {
+		auto pack = make_shared<MeshCoreCommandStdRetry>(*this);
+		pack->attempt++;
+		pack->time_limit = GetTickCount64() + 5000;
+		outgoing_commands.push_front(pack);
+		printf("Retrying command %s: retry number %u ...\n", GetMeshCoreCommandString(getType()).c_str(), pack->attempt);
+	} else {
+		printf("Giving up on command %s, retry limit hit...\n", GetMeshCoreCommandString(getType()).c_str());
 	}
 }
 
@@ -187,10 +217,17 @@ void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const ui
 	auto pack = make_shared<MeshCoreCommand>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
-	buffer_append_int<uint8>(&buf, 0x3E);
+	/*
+	buffer_append_int<uint8>(&buf, CMD_SEND_CHANNEL_DATA);
 	buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
 	buffer_append_int<uint8>(&buf, channel_idx);
 	buffer_append(&buf, (const char *)data, data_length);
+	*/
+	buffer_append_int<uint8>(&buf, CMD_SEND_CHANNEL_DATA);
+	buffer_append_int<uint8>(&buf, channel_idx);
+	buffer_append_int<uint8>(&buf, 0xFF); // flood
+	buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
+	buffer_append(&buf, (const char*)data, data_length);
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 	pack->expected_responses = { RESPONSE_CODE_OK };
@@ -288,7 +325,7 @@ void queue_packet_send_status_request(const string& pubkey) {
 		return;
 	}
 
-	auto pack = make_shared<MeshCoreCommand>();
+	auto pack = make_shared<MeshCoreCommandStdRetry>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
 	buffer_append_int<uint8>(&buf, 0x1B);
@@ -296,7 +333,7 @@ void queue_packet_send_status_request(const string& pubkey) {
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 
-	pack->expected_responses = { RESPONSE_CODE_OK, RESPONSE_CODE_STATUS_RESPONSE };
+	pack->expected_responses = { RESPONSE_CODE_MSG_SENT };
 	outgoing_commands.push_back(pack);
 }
 
@@ -427,6 +464,8 @@ void meshcore_work() {
 			}
 		}
 
+		timeout_outgoing_messages();
+
 		if (current_outgoing_command.get() == NULL && outgoing_commands.size()) {
 			uint64 ticks = GetTickCount64();
 			bool timeToSendMessage = (state.nextMessageTime == 0 || ticks > state.nextMessageTime);
@@ -461,7 +500,7 @@ void meshcore_work() {
 				buffer_append_int<uint16>(&config.sendbuf, tmp);
 
 				buffer_append(&config.sendbuf, cur->data.c_str(), cur->data.length());
-				mesh_log("Writing command with %zu bytes...\n", cur->data.length());
+				mesh_log("Writing command %s with %zu bytes...\n", GetMeshCoreCommandString((MESHCORE_COMMAND_CODES)cur->data[0]).c_str(), cur->data.length());
 				if (config.meshcore.log_to_console) {
 					PrintData(stdout, (const uint8*)cur->data.c_str(), cur->data.length());
 				}

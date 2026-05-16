@@ -165,7 +165,7 @@ void handle_incoming_commands() {
 		if (cmd->parms.exists("channel_index") && cmd->parms["channel_index"].isNum() && cmd->parms.exists("data_type") && cmd->parms["data_type"].isNum() && cmd->parms.exists("data") && cmd->parms["data"].isStr()) {
 			int channel_idx = cmd->parms["channel_index"].get_int();
 			int data_type = cmd->parms["data_type"].get_int();
-			string data = cmd->parms["message"].get_str();
+			string data = cmd->parms["data"].get_str();
 			if (channel_idx >= 0 && channel_idx <= MESHCORE_HIGHEST_CHANNEL && data_type != 0 && data_type != 0xFFFF && !data.empty() || data.length() % 2 != 0 || data.length() > MESHCORE_MAX_CHAN_DATAGRAM_LENGTH * 2) {
 
 				uint8 raw_len = (uint8)(data.length() / 2);

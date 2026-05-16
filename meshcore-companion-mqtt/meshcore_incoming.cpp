@@ -133,15 +133,14 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 }
 
 void handleIncomingPacket(uint8* pack, uint16 packlen) {
-	mesh_log("Received packet (%u bytes):\n", packlen);
+	const MESHCORE_RESPONSE_CODES& packet_type = (MESHCORE_RESPONSE_CODES)pack[0];
+	mesh_log("Received packet (%s, %u bytes):\n", GetMeshCoreResponseString(packet_type).c_str(), packlen);
 	if (config.meshcore.log_to_console) {
 		PrintData(stdout, pack, packlen);
 	}
 	if (config.meshcore.log_fp != NULL) {
 		PrintData(config.meshcore.log_fp, pack, packlen);
 	}
-
-	const MESHCORE_RESPONSE_CODES& packet_type = (MESHCORE_RESPONSE_CODES)pack[0];
 
 	if (packet_type >= 0x80 || packet_type == RESPONSE_CODE_CONTACT || packet_type == RESPONSE_CODE_CONTACT_END) {
 		handleIncomingPacketPushNotifications(pack, packlen);
@@ -156,11 +155,11 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	if (current_command) {
 		bool is_expected = (current_command->expected_responses.find(packet_type) != current_command->expected_responses.end());
 		if (is_expected) {
-			mesh_log("Received response %02x for current command %02x\n", packet_type, current_command->getType());
+			mesh_log("Received response %s for current command %s\n", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
 		} else {
-			mesh_log("Received unexpected response %02x for current command %02x!\n", packet_type, current_command->getType());
+			mesh_log("Received unexpected %s for current command %s\n", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
 			if (!config.meshcore.log_to_console) {
-				printf("Received unexpected response %02x for current command %02x!\n", packet_type, current_command->getType());
+				printf("Received unexpected %s for current command %s\n", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
 			}
 			current_command.reset();
 		}

@@ -63,8 +63,10 @@ enum MESHCORE_COMMAND_CODES : uint8 {
 	CMD_GET_ALLOWED_REPEAT_FREQ     = 0x3C,
 	CMD_GET_STATS                   = 0x38,
 	CMD_SET_PATH_HASH_MODE          = 0x3D,
+	CMD_SEND_CHANNEL_DATA           = 0x3E,
 	CMD_SET_DEFAULT_FLOOD_SCOPE     = 0x3F,
 	CMD_GET_DEFAULT_FLOOD_SCOPE     = 0x40,
+	CMD_UNKNOWN                     = 0xFF
 };
 
 // Response codes - https://docs.meshcore.io/companion_protocol/#response-parsing

@@ -145,12 +145,12 @@ class MeshCoreCommand {
 public:
 	string data;
 
-	uint8 getType() {
+	MESHCORE_COMMAND_CODES getType() {
 		if (data.size()) {
-			return (uint8)data[0];
+			return (MESHCORE_COMMAND_CODES)data[0];
 		}
 		assert(0);
-		return 0xFF;
+		return CMD_UNKNOWN;
 	}
 
 	set<uint8> expected_responses;
@@ -172,6 +172,11 @@ public:
 	virtual void onAck() {};
 	virtual void onTimeOut() {};
 	virtual void onSent(uint32 tag) {};
+};
+
+class MeshCoreCommandStdRetry : public MeshCoreCommandAcknowledged {
+public:
+	virtual void onTimeOut();
 };
 
 class MeshCoreCommandDirectMessage : public MeshCoreCommandAcknowledged {
@@ -278,6 +283,8 @@ bool mqtt_send(const string& topic, const UniValue& obj, bool retain);
 bool mqtt_send_self_info();
 bool mqtt_send_device_info();
 
+string GetMeshCoreCommandString(MESHCORE_COMMAND_CODES cmd);
+string GetMeshCoreResponseString(MESHCORE_RESPONSE_CODES resp);
 string trim_nulls(const string& str);
 string trim_nulls(const char* str, size_t len);
 
