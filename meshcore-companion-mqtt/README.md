@@ -132,9 +132,9 @@ Published for each channel (index 0–39) when channel info is received.
 }
 ```
 
-### `{prefix}/message/direct/{pubkey_prefix}` — not retained
+### `{prefix}/direct/message/{pubkey_prefix}` — not retained
 
-Published when a direct (private) message is received. `pubkey_prefix` is the 12-character hex prefix of the sender's public key. `public_key` is included if the sender is in the contacts list.
+Published when a direct (private) text message is received. `pubkey_prefix` is the 12-character hex prefix of the sender's public key. `public_key` is included if the sender is in the contacts list.
 
 ```json
 {
@@ -147,11 +147,27 @@ Published when a direct (private) message is received. `pubkey_prefix` is the 12
 }
 ```
 
-`txt_type` values: `0` = plain text, `1` = CLI data, `2` = signed plain text.
+`txt_type` values: `0` = plain text, `2` = signed plain text.
 
-### `{prefix}/message/channel/{channel_index}` — not retained
+### `{prefix}/direct/data/{pubkey_prefix}` — not retained
 
-Published when a channel message is received.
+Published when a direct datagram (binary/CLI data) is received. `pubkey_prefix` is the 12-character hex prefix of the sender's public key. `public_key` is included if the sender is in the contacts list.
+
+```json
+{
+  "public_key": "aabbccdd...",
+  "public_key_prefix": "aabbccdd1122",
+  "timestamp": 1700000000,
+  "path_length": 1,
+  "data": "deadbeef..."
+}
+```
+
+`data` is a hex-encoded string of the raw datagram payload.
+
+### `{prefix}/channel/message/{channel_index}` — not retained
+
+Published when a channel text message is received.
 
 ```json
 {
@@ -161,6 +177,48 @@ Published when a channel message is received.
   "timestamp": 1700000000,
   "from": "Alice",
   "message": "Hello everyone!"
+}
+```
+
+### `{prefix}/channel/data/{channel_index}` — not retained
+
+Published when a channel datagram is received.
+
+```json
+{
+  "channel_index": 0,
+  "path_length": 1,
+  "data_type": 1,
+  "data": "deadbeef..."
+}
+```
+
+`data` is a hex-encoded string of the raw datagram payload.
+
+### `{prefix}/battery_info` — not retained
+
+Published in response to a `get_battery_info` command.
+
+```json
+{
+  "millivolts": 3850,
+  "volts": 3.85,
+  "used_storage": 512,
+  "total_storage": 4096
+}
+```
+
+`used_storage` and `total_storage` are in kilobytes.
+
+### `{prefix}/status_response/{pubkey_prefix}` — not retained
+
+Published when a status response is received from a contact, after a `send_status_request` command. `pubkey_prefix` is the 12-character hex prefix of the responding node. `public_key` is included if the node is in the contacts list. `status_data` is a hex-encoded string and is only present if the response contains extra data.
+
+```json
+{
+  "public_key": "aabbccdd...",
+  "public_key_prefix": "aabbccdd1122",
+  "status_data": "deadbeef..."
 }
 ```
 
@@ -195,6 +253,15 @@ Requests hardware/firmware info from the node. The response is published to `{pr
 
 ```
 Topic:   meshmqtt/command/get_device_info
+Payload: {}
+```
+
+### `get_battery_info`
+
+Requests battery voltage and storage usage from the node. The response is published to `{prefix}/battery_info`.
+
+```
+Topic:   meshmqtt/command/get_battery_info
 Payload: {}
 ```
 
@@ -247,7 +314,7 @@ Failed sends are automatically retried up to 3 times.
 
 ### `send_direct_msg`
 
-Sends a direct message to a contact. `destination` must be either a full 64-character hex public key or a 12-character hex public key prefix. `message` must be non-empty and is truncated to 160 bytes. `txt_type` is optional and defaults to `0` (plain text).
+Sends a direct text message to a contact. `destination` must be either a full 64-character hex public key or a 12-character hex public key prefix. `message` must be non-empty.
 
 ```
 Topic:   meshmqtt/command/send_direct_msg
@@ -257,12 +324,73 @@ Payload: { "destination": "aabbccdd...(64 hex chars)", "message": "Hello!" }
 
 # Using a public key prefix:
 Payload: { "destination": "aabbccdd1122", "message": "Hello!" }
-
-# With an explicit text type:
-Payload: { "destination": "aabbccdd1122", "message": "Hello!", "txt_type": 0 }
 ```
 
-`txt_type` values: `0` = plain text, `1` = CLI data, `2` = signed plain text.
+Failed sends are automatically retried up to 3 times.
+
+### `send_status_request`
+
+Sends a status request to a contact. `public_key` must be a full 64-character hex public key. The response is published to `{prefix}/status_response/{pubkey_prefix}`.
+
+```
+Topic:   meshmqtt/command/send_status_request
+Payload: { "public_key": "aabbccdd...(64 hex chars)" }
+```
+
+### `set_channel_config`
+
+Sets the name and optionally the secret key for a channel. `channel_index` must be 0–39 and `channel_name` must be non-empty. If `secret_key` is omitted, the channel's secret is derived automatically from the channel name.
+
+```
+Topic:   meshmqtt/command/set_channel_config
+
+# Set name only (key derived from name):
+Payload: { "channel_index": 0, "channel_name": "General" }
+
+# Set name and explicit secret key (hex):
+Payload: { "channel_index": 0, "channel_name": "General", "secret_key": "0011223344556677..." }
+```
+
+### `erase_channel`
+
+Erases a channel slot on the device. `channel_index` must be 0–39.
+
+```
+Topic:   meshmqtt/command/erase_channel
+Payload: { "channel_index": 0 }
+```
+
+### `swap_channels`
+
+Swaps two channel slots on the device. Both indices must be 0–39.
+
+```
+Topic:   meshmqtt/command/swap_channels
+Payload: { "channel_index_1": 0, "channel_index_2": 1 }
+```
+
+### `send_channel_datagram`
+
+Sends a raw datagram to a channel. `channel_index` must be 0–39. `data_type` must be a non-zero value other than `0xFFFF`. `data` is a hex-encoded string of the payload (max 163 bytes, i.e. 326 hex characters).
+
+```
+Topic:   meshmqtt/command/send_channel_datagram
+Payload: { "channel_index": 0, "data_type": 1, "data": "deadbeef..." }
+```
+
+### `send_direct_datagram`
+
+Sends a raw datagram directly to a contact. `destination` must be either a full 64-character hex public key or a 12-character hex public key prefix. `data` is a hex-encoded string of the payload (max 168 bytes, i.e. 336 hex characters).
+
+```
+Topic:   meshmqtt/command/send_direct_datagram
+
+# Using a full public key:
+Payload: { "destination": "aabbccdd...(64 hex chars)", "data": "deadbeef..." }
+
+# Using a public key prefix:
+Payload: { "destination": "aabbccdd1122", "data": "deadbeef..." }
+```
 
 Failed sends are automatically retried up to 3 times.
 
