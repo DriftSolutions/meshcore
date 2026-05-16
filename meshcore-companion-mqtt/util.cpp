@@ -66,7 +66,7 @@ string GetMeshCoreCommandString(MESHCORE_COMMAND_CODES cmd) {
 		case CMD_GET_DEFAULT_FLOOD_SCOPE: return "CMD_GET_DEFAULT_FLOOD_SCOPE";
 		default: {
 			char buf[32];
-			snprintf(buf, sizeof(buf), "UNKNOWN(0x%02X)", (uint8)cmd);
+			snprintf(buf, sizeof(buf), "UNKNOWN (0x%02X)", (uint8)cmd);
 			return buf;
 		}
 	}
@@ -98,7 +98,7 @@ string GetMeshCoreResponseString(MESHCORE_RESPONSE_CODES resp) {
 		case RESPONSE_CODE_CONTACT_DELETED:      return "RESPONSE_CODE_CONTACT_DELETED";
 		default: {
 			char buf[32];
-			snprintf(buf, sizeof(buf), "UNKNOWN(0x%02X)", (uint8)resp);
+			snprintf(buf, sizeof(buf), "UNKNOWN (0x%02X)", (uint8)resp);
 			return buf;
 		}
 	}

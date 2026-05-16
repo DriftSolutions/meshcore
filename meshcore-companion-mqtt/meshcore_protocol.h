@@ -343,6 +343,25 @@ struct _PACKET_STATUS_RESPONSE {
 	//status_data : bytes     // remainder of frame
 };
 
+struct _PACKET_STATUS_RESPONSE_REPEATER {
+	uint16 batt_milli_volts;
+	uint16 curr_tx_queue_len;
+	int16  noise_floor;
+	int16  last_rssi;
+	uint32 n_packets_recv;
+	uint32 n_packets_sent;
+	uint32 total_air_time_secs;
+	uint32 total_up_time_secs;
+	uint32 n_sent_flood;
+	uint32 n_sent_direct;
+	uint32 n_recv_flood;
+	uint32 n_recv_direct;
+	uint16 err_events;
+	int16  last_snr;
+	uint16 n_direct_dups;
+	uint16 n_flood_dups;
+};
+
 struct _PACKET_ADD_UPDATE_CONTACT {
 	/*
 code: byte,   // constant 9

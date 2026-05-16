@@ -421,10 +421,9 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 
 	if (!strnicmp(topic, prefix_status_response.c_str(), prefix_status_response.length())) {
 		string from = payload.exists("public_key_prefix") && payload["public_key_prefix"].isStr() ? payload["public_key_prefix"].get_str() : "";
-		string text = payload.exists("status_data") && payload["status_data"].isStr() ? payload["status_data"].get_str() : "";
 		if (from.empty()) { return; }
 
-		onStatusResponse(from, text);
+		onStatusResponse(from, payload);
 		return;
 	}	
 

@@ -277,7 +277,7 @@ public:
 	void onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload);
 	void onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type);
 	void onDirectData(const string& pubkey_prefix, uint8* data, size_t data_len, int hops, const UniValue& payload);
-	void onStatusResponse(const string& pubkey_prefix, const string& status_data);
+	void onStatusResponse(const string& pubkey_prefix, const UniValue& payload);
 };
 
 class CONFIG {

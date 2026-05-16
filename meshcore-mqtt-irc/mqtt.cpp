@@ -275,18 +275,101 @@ void MQTT_IRC_Client::onDirectMessageOnMQTT(const string& destination, const str
 	config.self_user->onAction();
 }
 
-void MQTT_IRC_Client::onStatusResponse(const string& pubkey_prefix, const string& status_data) {
+string FormatMinutes(int64 secs) {
+	bool is_neg = (secs < 0);
+	if (is_neg) {
+		secs *= -1;
+	}
+	int64 months = 0;
+	int64 days = secs / 86400;
+	if (days) {
+		time_t ts1 = time(NULL);
+		time_t ts2 = ts1 + secs;
+		struct tm tm1, tm2;
+		localtime_r(&ts1, &tm1);
+		localtime_r(&ts2, &tm2);
+		if (tm1.tm_mon < tm2.tm_mon) {
+			months = (tm2.tm_mon - tm1.tm_mon);
+			tm2 = tm1;
+			tm2.tm_mon += (int)months;
+			//tm2.tm_min = tm2.tm_hour = tm2.tm_sec = 0;
+			//tm2.tm_mday = tm1.tm_mday;
+			time_t ts3 = mktime(&tm2);
+			if (ts3 > ts1) {
+				int64 mdays = (ts3 - ts1) / 86400;
+				if (mdays <= days) {
+					days -= mdays;
+					secs -= mdays * 86400;
+				} else {
+					months = 0;
+				}
+			} else {
+				months = 0;
+			}
+		} else if (tm1.tm_mon > tm2.tm_mon) {
+			int x = 1;
+			//months = (tm1.tm_mon - tm2.tm_mon);
+			//int64 mdays = (ts2 - ts1) / 86400;
+			//days -= mdays;
+			//secs -= mdays * 86400;
+		}
+
+		secs -= days * 86400;
+	}
+	int64 hours = secs / 3600;
+	if (hours) {
+		secs -= hours * 3600;
+	}
+	int64 mins = secs / 60;
+	if (mins) {
+		secs -= mins * 60;
+	}
+	if (secs >= 30) {
+		mins++;
+	}
+
+	stringstream sstr;
+	if (is_neg) {
+		sstr << "-";
+	}
+	if (months) {
+		sstr << months << "mon ";
+	}
+	if (days) {
+		sstr << days << "d ";
+	}
+	if (hours) {
+		sstr << hours << "h ";
+	}
+	sstr << mins << "m";
+	return sstr.str();
+}
+
+void MQTT_IRC_Client::onStatusResponse(const string& pubkey_prefix, const UniValue& payload) {
 	shared_ptr<MeshCoreUser> user;
 	if (!get_user_by_pubkey_prefix(pubkey_prefix, user)) {
 		printf("[mqtt] Could not find user with pubkey_prefix %s\n", pubkey_prefix.c_str());
 		return;
 	}
 
+	string msg = "\x01PONG Status response received from " + pubkey_prefix;
+
+	if (payload.exists("batt_milli_volts") && payload["batt_milli_volts"].isNum()) {
+		double volts = double(payload["batt_milli_volts"].get_int()) / 1000.0f;
+		msg += mprintf(" [Battery: %.02fv]", volts);
+	}
+	if (payload.exists("total_up_time_secs") && payload["total_up_time_secs"].isNum()) {
+		int64 uptime = int64(payload["total_up_time_secs"].get_int64());
+		msg += mprintf(" [Uptime: %s]", FormatMinutes(uptime).c_str());
+	}
+
+	msg += "\x01";
+
 	vector<string> parms = {
 		":" + user->hostmask,
 		"PRIVMSG",
 		config.self_user->irc_nick,
-		"\x01PONG Status response received from " + pubkey_prefix + "\x01"
+		msg
 	};
 	SendLineToAllAuthenticatedClients(parms);
 }

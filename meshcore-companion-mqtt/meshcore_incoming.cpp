@@ -165,10 +165,40 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 			obj.pushKV("public_key", u->pubkey);
 		}
 		obj.pushKV("public_key_prefix", pubkey_prefix);
-		if (packlen > sizeof(_PACKET_STATUS_RESPONSE)) {
+
+		if (packlen >= sizeof(_PACKET_STATUS_RESPONSE_REPEATER)) {
+			_PACKET_STATUS_RESPONSE_REPEATER * r = (_PACKET_STATUS_RESPONSE_REPEATER*)(pack + sizeof(_PACKET_STATUS_RESPONSE));
+
+			obj.pushKV("batt_milli_volts", Get_ULE16(r->batt_milli_volts));
+			obj.pushKV("curr_tx_queue_len", Get_ULE16(r->curr_tx_queue_len));
+			obj.pushKV("noise_floor", (int)Get_SLE16(r->noise_floor));
+			obj.pushKV("last_rssi", (int)Get_SLE16(r->last_rssi));
+			obj.pushKV("n_packets_recv", (int64)Get_ULE32(r->n_packets_recv));
+			obj.pushKV("n_packets_sent", (int64)Get_ULE32(r->n_packets_sent));
+			obj.pushKV("total_air_time_secs", (int64)Get_ULE32(r->total_air_time_secs));
+			obj.pushKV("total_up_time_secs", (int64)Get_ULE32(r->total_up_time_secs));
+			obj.pushKV("n_sent_flood", (int64)Get_ULE32(r->n_sent_flood));
+			obj.pushKV("n_sent_direct", (int64)Get_ULE32(r->n_sent_direct));
+			obj.pushKV("n_recv_flood", (int64)Get_ULE32(r->n_recv_flood));
+			obj.pushKV("n_recv_direct", (int64)Get_ULE32(r->n_recv_direct));
+			obj.pushKV("err_events", Get_ULE16(r->err_events));
+			obj.pushKV("last_snr", (int)Get_SLE16(r->last_snr));
+			obj.pushKV("n_direct_dups", Get_ULE16(r->n_direct_dups));
+			obj.pushKV("n_flood_dups", Get_ULE16(r->n_flood_dups));
+		} else if (packlen > sizeof(_PACKET_STATUS_RESPONSE)) {
 			const uint8* data = pack + sizeof(_PACKET_STATUS_RESPONSE);
 			size_t len = packlen - sizeof(_PACKET_STATUS_RESPONSE);
 			obj.pushKV("status_data", bin2hex(data, len));
+
+			if (config.meshcore.log_to_console) {
+				printf("Status data:\n");
+				PrintData(stdout, data, len);
+			}
+
+			mesh_log("Status data:\n");
+			if (config.meshcore.log_fp != NULL) {
+				PrintData(config.meshcore.log_fp, data, len);
+			}
 		}
 
 		mqtt_send(config.mqtt.topic_prefix + "/status_response/" + pubkey_prefix, obj, false);
