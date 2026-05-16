@@ -170,7 +170,7 @@ void MQTT_IRC_Client::onChannelData(int channel_idx, uint16 data_type, uint8* da
 
 	vector<string> parms = {
 		":" + config.irc.server_hostname,
-		"NOTICE",
+		"PRIVMSG",
 		chan->irc_name,
 		mprintf("Received datagram of type %u: %s\n", data_type, bin2hex(data, data_len).c_str())
 	};
@@ -226,7 +226,7 @@ void MQTT_IRC_Client::onDirectData(const string& pubkey_prefix, uint8* data, siz
 
 	vector<string> parms = {
 		":" + user->hostmask,
-		"NOTICE",
+		"PRIVMSG",
 		config.self_user->irc_nick,
 		mprintf("Received datagram: %s\n", bin2hex(data, data_len).c_str())
 	};
