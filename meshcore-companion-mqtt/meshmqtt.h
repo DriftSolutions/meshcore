@@ -188,6 +188,11 @@ public:
 	virtual void onTimeOut();
 };
 
+class MeshCoreCommandStatusRequest : public MeshCoreCommandStdRetry {
+public:
+	char pubkey_prefix[MESHCORE_PUBKEY_PREFIX_LEN + 1] = { 0 };
+};
+
 extern list<shared_ptr<MeshCoreCommand>> outgoing_commands;
 extern map<uint32, shared_ptr<MeshCoreCommand>> outgoing_messages;
 extern shared_ptr<MeshCoreCommand> current_outgoing_command;

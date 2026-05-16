@@ -145,8 +145,21 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 	if (packet_type == RESPONSE_CODE_STATUS_RESPONSE && packlen >= sizeof(_PACKET_STATUS_RESPONSE)) {
 		_PACKET_STATUS_RESPONSE* s = (_PACKET_STATUS_RESPONSE*)pack;
 
-		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(s->public_key_prefix, sizeof(s->public_key_prefix));
+
+		for (auto x = outgoing_messages.begin(); x != outgoing_messages.end(); x++) {
+			auto req = dynamic_cast<MeshCoreCommandStatusRequest*>(x->second.get());
+			if (req != NULL) {
+				if (!stricmp(pubkey_prefix.c_str(), req->pubkey_prefix)) {
+					// Received, remove from retry queue
+					outgoing_messages.erase(x);
+					break;
+				}
+			}
+		}
+
+		UniValue obj(UniValue::VOBJ);
+
 		shared_ptr<MeshCoreUser> u;
 		if (get_user_by_pubkey_prefix(pubkey_prefix, u)) {
 			obj.pushKV("public_key", u->pubkey);

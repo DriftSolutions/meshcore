@@ -326,7 +326,7 @@ void queue_packet_send_status_request(const string& pubkey) {
 		return;
 	}
 
-	auto pack = make_shared<MeshCoreCommandStdRetry>();
+	auto pack = make_shared<MeshCoreCommandStatusRequest>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
 	buffer_append_int<uint8>(&buf, 0x1B);
@@ -334,6 +334,7 @@ void queue_packet_send_status_request(const string& pubkey) {
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 
+	sstrcpy(pack->pubkey_prefix, pubkey.c_str());
 	pack->expected_responses = { RESPONSE_CODE_MSG_SENT };
 	outgoing_commands.push_back(pack);
 }
