@@ -25,6 +25,13 @@
 #define MESHCORE_PUBKEY_PREFIX_LEN 12
 #define MESHCORE_CHAN_SECRET_LEN 32
 
+enum MESHCORE_TEXT_TYPES : uint8 {
+	TXT_TYPE_PLAIN = 0, // a plain text message
+	TXT_TYPE_CLI_DATA = 1, // a CLI command
+	TXT_TYPE_SIGNED_PLAIN = 2, // plain text, signed by sender
+	TXT_TYPE_NOTICE = 3
+};
+
 #ifdef __MESHCORE_MQTT_CLIENT_INTERNAL__
 #define LIBMOSQUITTO_STATIC
 #include <mosquitto.h>
@@ -82,9 +89,9 @@ public:
 	bool Send(const string& topic, const UniValue& payload);
 
 
-	bool SendChannelMsg(int channel_idx, const string& str, int txt_type = 0);
+	bool SendChannelMsg(int channel_idx, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 	bool SendChannelDatagram(int channel_idx, const string& data, uint16 data_type); // data_type can be anything except 0 or 0xFFFF. Maximum data length: 163 bytes
-	bool SendDirectMsg(const string& pubkey, const string& str, int txt_type = 0);
+	bool SendDirectMsg(const string& pubkey, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 	bool SendDirectDatagram(const string& pubkey, const string& data);
 	bool SendStatusRequest(const string& pubkey);
 

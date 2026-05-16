@@ -186,12 +186,13 @@ void handle_incoming_commands() {
 		if (cmd->parms.exists("destination") && cmd->parms["destination"].isStr() && cmd->parms.exists("data") && cmd->parms["data"].isStr()) {
 			string destination = cmd->parms["destination"].get_str();
 			string data = cmd->parms["data"].get_str();
-			if (!destination.empty() && !data.empty() && data.length() % 2 == 0 && data.length() <= MESHCORE_MAX_CHAN_DATAGRAM_LENGTH * 2) {
+			if (!destination.empty() && !data.empty() && data.length() % 2 == 0 && data.length() <= MESHCORE_MAX_DIRECT_DATAGRAM_LENGTH * 2) {
 				if (is_valid_destination(destination)) {
 					uint8 raw_len = (uint8)(data.length() / 2);
 					uint8* raw = (uint8*)malloc(raw_len);
 					if (hex2bin(data.c_str(), data.length(), raw, raw_len)) {
-						queue_packet_send_direct_datagram(destination, raw, raw_len);
+						//queue_packet_send_direct_datagram(destination, raw, raw_len);
+						queue_packet_send_direct_msg(destination, data, 0, TXT_TYPE_CLI_DATA);
 					} else {
 						printf("Error in send_direct_datagram: error converting hex string to binary!\n");
 					}

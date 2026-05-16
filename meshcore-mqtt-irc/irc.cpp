@@ -541,7 +541,7 @@ bool Client::handleIncomingConnected(char* cmd, char* parms[], int nparms) {
 
 	if (!stricmp(cmd, "PRIVMSG") || !stricmp(cmd, "NOTICE")) {
 		if (nparms > 1) {
-			int txt_type = stricmp(cmd, "NOTICE") ? 0 : 3;
+			MESHCORE_TEXT_TYPES txt_type = stricmp(cmd, "NOTICE") ? TXT_TYPE_PLAIN : TXT_TYPE_NOTICE;
 			shared_ptr<MeshCoreUser> u;
 			shared_ptr<MeshCoreChannel> c;
 

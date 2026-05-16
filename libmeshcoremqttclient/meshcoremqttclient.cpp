@@ -526,7 +526,7 @@ void split_msg_for_chan(const string& sender_nick, const string& str, vector<str
 	_get_split_into_lines(str, lines, len);
 }
 
-bool MeshCore_MQTT_Client::SendChannelMsg(int idx, const string& str, int txt_type) {
+bool MeshCore_MQTT_Client::SendChannelMsg(int idx, const string& str, MESHCORE_TEXT_TYPES txt_type) {
 	if (!connected || str.empty() || idx < 0 || idx > MESHCORE_HIGHEST_CHANNEL) {
 		return false;
 	}
@@ -648,7 +648,7 @@ void split_msg_for_privmsg(const char* str, vector<string>& lines) {
 	_get_split_into_lines(str, lines, 133 - NOTICE_PREFIX_LEN);
 }
 
-bool MeshCore_MQTT_Client::SendDirectMsg(const string& pubkey, const string& str, int txt_type) {
+bool MeshCore_MQTT_Client::SendDirectMsg(const string& pubkey, const string& str, MESHCORE_TEXT_TYPES txt_type) {
 	if (!connected || pubkey.empty() || str.empty()) {
 		return false;
 	}

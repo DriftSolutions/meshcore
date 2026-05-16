@@ -283,8 +283,9 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	outgoing_commands.push_back(pack);
 }
 
+/*
 void queue_packet_send_direct_datagram(const string& pubkey, const uint8* data, size_t data_length) {
-	if (data_length > MESHCORE_MAX_CHAN_DATAGRAM_LENGTH) {
+	if (data_length > MESHCORE_MAX_DIRECT_DATAGRAM_LENGTH) {
 		printf("queue_packet_channel_datagram(): datagram too big!\n");
 		return;
 	}
@@ -302,12 +303,6 @@ void queue_packet_send_direct_datagram(const string& pubkey, const uint8* data, 
 	auto pack = make_shared<MeshCoreCommandStdRetry>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
-	/*
-	buffer_append_int<uint8>(&buf, CMD_SEND_CHANNEL_DATA);
-	buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
-	buffer_append_int<uint8>(&buf, channel_idx);
-	buffer_append(&buf, (const char *)data, data_length);
-	*/
 	buffer_append_int<uint8>(&buf, CMD_BINARY_REQ);
 	buffer_append(&buf, (const char*)key, sizeof(key));
 	buffer_append(&buf, (const char*)data, data_length);
@@ -317,6 +312,7 @@ void queue_packet_send_direct_datagram(const string& pubkey, const uint8* data, 
 	pack->is_message = true;
 	outgoing_commands.push_back(pack);
 }
+*/
 
 void queue_packet_send_status_request(const string& pubkey) {
 	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
