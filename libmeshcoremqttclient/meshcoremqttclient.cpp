@@ -256,7 +256,8 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 	static const string prefix_chan_info = topic_prefix + "/channel_info/";
 	static const string prefix_chan = topic_prefix + "/channel/message/";
 	static const string prefix_chan_data = topic_prefix + "/channel/data/";
-	static const string prefix_dir = topic_prefix + "/message/direct/";
+	static const string prefix_dir = topic_prefix + "/direct/message/";
+	static const string prefix_dir_data = topic_prefix + "/direct/data/";
 	static const string prefix_status_response = topic_prefix + "/status_response/";
 	static const string prefix_contacts = topic_prefix + "/contacts";
 	static const string prefix_new_contact = topic_prefix + "/new_contact";
@@ -395,6 +396,26 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
 
 		cbDirectMessage(from, text.c_str(), txt_type, hops, payload);
+		return;
+	}
+
+	if (!strnicmp(topic, prefix_dir_data.c_str(), prefix_dir_data.length())) {
+
+		string from = payload.exists("public_key_prefix") && payload["public_key_prefix"].isStr() ? payload["public_key_prefix"].get_str() : "";
+		string data = payload.exists("data") && payload["data"].isStr() ? payload["data"].get_str() : "";
+		if (from.empty() || data.empty() || data.length() % 2 != 0 || strspn(data.c_str(), "0123456789abcdef") != data.length()) {
+			return;
+		}
+
+		size_t data_len = data.length() / 2;
+		uint8* raw = (uint8*)malloc(data_len);
+		if (hex2bin(data.c_str(), data.length(), raw, data_len)) {
+			int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
+			onDirectData(from, raw, data_len, hops, payload);
+		} else {
+			Log("Error converting data from hex to binary: %s\n", data.c_str());
+		}
+		free(raw);
 		return;
 	}
 

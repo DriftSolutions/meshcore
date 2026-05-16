@@ -192,7 +192,7 @@ void handle_incoming_commands() {
 					uint8* raw = (uint8*)malloc(raw_len);
 					if (hex2bin(data.c_str(), data.length(), raw, raw_len)) {
 						//queue_packet_send_direct_datagram(destination, raw, raw_len);
-						queue_packet_send_direct_msg(destination, data, 0, TXT_TYPE_CLI_DATA);
+						queue_packet_send_direct_msg(destination, string((const char *)raw, raw_len), 0, TXT_TYPE_CLI_DATA);
 					} else {
 						printf("Error in send_direct_datagram: error converting hex string to binary!\n");
 					}

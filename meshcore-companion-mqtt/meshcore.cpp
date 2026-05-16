@@ -263,7 +263,7 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 		return;
 	}
 
-	auto pack = make_shared<MeshCoreCommandDirectMessage>();
+	auto pack = (txt_type == TXT_TYPE_CLI_DATA) ? make_shared<MeshCoreCommand>() : make_shared<MeshCoreCommandDirectMessage>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
 	buffer_append_int<uint8>(&buf, 0x02);

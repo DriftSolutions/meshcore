@@ -191,7 +191,7 @@ void MQTT_IRC_Client::onDirectMessage(const string& pubkey_prefix, const string&
 		return;
 	}
 
-	printf("[mqtt] [DM] <%s> %s\n", user->irc_nick, text.c_str());
+	printf("[mqtt] [DM] <%s> %s\n", user->irc_nick, text.c_str());	
 
 	vector<string> lines;
 	split_incoming_into_lines(text, lines);
@@ -205,6 +205,34 @@ void MQTT_IRC_Client::onDirectMessage(const string& pubkey_prefix, const string&
 		if (!SendLineToAllAuthenticatedClients(parms)) {
 			AddOfflineMessage(parms);
 		}
+	}
+
+	user->updateSeen(hops);
+	user->onAction();
+}
+
+void MQTT_IRC_Client::onDirectData(const string& pubkey_prefix, uint8* data, size_t data_len, int hops, const UniValue& payload) {
+	if (config.self_user.get() == NULL) {
+		return;
+	}
+
+	shared_ptr<MeshCoreUser> user;
+	if (!get_user_by_pubkey_prefix(pubkey_prefix, user)) {
+		printf("[mqtt] Could not find user with pubkey_prefix %s\n", pubkey_prefix.c_str());
+		return;
+	}
+
+	printf("[mqtt] [DM] Datagram from %s: %s\n", user->irc_nick, bin2hex(data, data_len).c_str());
+
+	vector<string> parms = {
+		":" + user->hostmask,
+		"NOTICE",
+		config.self_user->irc_nick,
+		mprintf("Received datagram: %s\n", bin2hex(data, data_len).c_str())
+	};
+	if (!SendLineToAllAuthenticatedClients(parms)) {
+		// no clients are online and connected
+		AddOfflineMessage(parms);
 	}
 
 	user->updateSeen(hops);

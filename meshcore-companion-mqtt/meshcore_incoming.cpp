@@ -208,8 +208,6 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 					dm->time_limit = GetTickCount64() + timeo;
 					outgoing_messages[tag] = current_command;
 					current_command.reset();
-				} else {
-					int x = 1;
 				}
 			}
 		} else {
@@ -323,11 +321,11 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 		}
 		obj.pushKV("message", trim_nulls(text, packlen - header_len));
 		//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-		mqtt_send(mprintf("%s/message/direct/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
+		mqtt_send(mprintf("%s/direct/message/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
 		return;
 	}
 
-	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV_V3 && packlen >= sizeof(RESPONSE_CODE_CONTACT_MSG_RECV_V3)) {
+	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV_V3 && packlen >= sizeof(_PACKET_CONTACT_MSG_RECV_V3)) {
 		_PACKET_CONTACT_MSG_RECV_V3* msg = (_PACKET_CONTACT_MSG_RECV_V3*)pack;
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
@@ -336,20 +334,31 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 			obj.pushKV("public_key", u->pubkey);
 		}
 		obj.pushKV("public_key_prefix", pubkey_prefix);
-		obj.pushKV("txt_type", (uint8)msg->text_type);
-		obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
-		obj.pushKV("path_length", msg->path_length);
-		char* text;
-		size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV_V3);
-		if (msg->text_type == 2) { // signed text			
-			text = (char*)pack + sizeof(_PACKET_CONTACT_MSG_RECV_V3);
+
+		if (msg->text_type != TXT_TYPE_CLI_DATA) {
+			obj.pushKV("txt_type", (uint8)msg->text_type);
+			obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
+			obj.pushKV("path_length", msg->path_length);
+			char* text;
+			size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV_V3);
+			if (msg->text_type == 2) { // signed text			
+				text = (char*)pack + sizeof(_PACKET_CONTACT_MSG_RECV_V3);
+			} else {
+				text = (char*)&msg->signature[0];
+				header_len -= 4;
+			}
+			obj.pushKV("message", trim_nulls(text, packlen - header_len));
+			//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
+			mqtt_send(mprintf("%s/direct/message/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
 		} else {
-			text = (char*)&msg->signature[0];
-			header_len -= 4;
+			obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
+			obj.pushKV("path_length", msg->path_length);
+			uint8* text = (uint8*)&msg->signature[0];
+			size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV_V3) - 4;
+			obj.pushKV("data", bin2hex(text, packlen - header_len));
+			//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
+			mqtt_send(mprintf("%s/direct/data/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
 		}
-		obj.pushKV("message", trim_nulls(text, packlen - header_len));
-		//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-		mqtt_send(mprintf("%s/message/direct/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
 		return;
 	}
 
