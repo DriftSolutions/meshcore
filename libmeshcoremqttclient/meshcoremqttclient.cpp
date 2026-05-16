@@ -254,7 +254,8 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 	static const string prefix_self = topic_prefix + "/self_info";
 	static const string prefix_battery_info = topic_prefix + "/battery_info";
 	static const string prefix_chan_info = topic_prefix + "/channel_info/";
-	static const string prefix_chan = topic_prefix + "/message/channel/";
+	static const string prefix_chan = topic_prefix + "/channel/message/";
+	static const string prefix_chan_data = topic_prefix + "/channel/data/";
 	static const string prefix_dir = topic_prefix + "/message/direct/";
 	static const string prefix_status_response = topic_prefix + "/status_response/";
 	static const string prefix_contacts = topic_prefix + "/contacts";
@@ -354,6 +355,34 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
 
 		cbChannelMessage(channel_idx, from, msg_text.c_str(), txt_type, hops, payload);
+		return;
+	}
+
+	if (!strnicmp(topic, prefix_chan_data.c_str(), prefix_chan_data.length())) {
+
+		int channel_idx = payload.exists("channel_index") && payload["channel_index"].isNum() ? payload["channel_index"].get_int() : 0;
+		int data_type = payload.exists("data_type") && payload["data_type"].isNum() ? payload["data_type"].get_int() : 0;
+		string data = payload.exists("data") && payload["data"].isStr() ? payload["data"].get_str() : "";
+		int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
+
+		if (channel_idx < 0 || channel_idx > MESHCORE_HIGHEST_CHANNEL) {
+			return;
+		}
+		if (data_type <= 0 || data_type >= 0xFFFF) {
+			return;
+		}
+		if (data.empty() || data.length() % 2 != 0 || strspn(data.c_str(), "0123456789abcdef") != data.length()) {
+			return;
+		}
+
+		size_t data_len = data.length() / 2;
+		uint8* raw = (uint8*)malloc(data_len);
+		if (hex2bin(data.c_str(), data.length(), raw, data_len)) {
+			onChannelData(channel_idx, data_type, raw, data_len, hops, payload);
+		} else {
+			Log("Error converting data from hex to binary: %s\n", data.c_str());
+		}
+		free(raw);
 		return;
 	}
 

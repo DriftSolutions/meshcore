@@ -369,7 +369,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 			obj.pushKV("from", str.substr(0, p - str.c_str()));
 			obj.pushKV("message", p + 2);
 			//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-			mqtt_send(mprintf("%s/message/channel/%u", config.mqtt.topic_prefix.c_str(), msg->channel_index), obj, false);
+			mqtt_send(mprintf("%s/channel/message/%u", config.mqtt.topic_prefix.c_str(), msg->channel_index), obj, false);
 		} else {
 			printf("Warning: unrecognized incoming channel message: %s\n", str.c_str());
 		}
@@ -392,10 +392,27 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 			obj.pushKV("from", str.substr(0, p - str.c_str()));
 			obj.pushKV("message", p + 2);
 			//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-			mqtt_send(mprintf("%s/message/channel/%u", config.mqtt.topic_prefix.c_str(), msg->channel_index), obj, false);
+			mqtt_send(mprintf("%s/channel/message/%u", config.mqtt.topic_prefix.c_str(), msg->channel_index), obj, false);
 		} else {
 			printf("Warning: unrecognized incoming channel message: %s\n", str.c_str());
 		}
+		return;
+	}
+
+	if (packet_type == RESPONSE_CODE_CHANNEL_DATA_RECV && packlen > sizeof(_PACKET_CHANNEL_DATA_RECV)) {
+		_PACKET_CHANNEL_DATA_RECV* msg = (_PACKET_CHANNEL_DATA_RECV*)pack;
+		uint8* data = (uint8*)pack + sizeof(_PACKET_CHANNEL_DATA_RECV);
+		size_t len = packlen - sizeof(_PACKET_CHANNEL_DATA_RECV);
+		string str = bin2hex(data, len);
+
+		UniValue obj(UniValue::VOBJ);
+		obj.pushKV("channel_index", msg->channel_index);
+		obj.pushKV("path_length", msg->path_length);
+		obj.pushKV("data_type", Get_ULE16(msg->data_type));
+		obj.pushKV("data", str);
+
+		mqtt_send(mprintf("%s/channel/data/%u", config.mqtt.topic_prefix.c_str(), msg->channel_index), obj, false);
+
 		return;
 	}
 

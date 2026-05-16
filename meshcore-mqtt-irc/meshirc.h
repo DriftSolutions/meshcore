@@ -273,6 +273,7 @@ public:
 	void onChanInfo(int channel_idx, const string& channelName, bool is_private, const UniValue& payload);
 	void onChanInfoComplete();
 	void onChannelMessage(int channel_idx, const string& from, const string& text, int txt_type, int hops, const UniValue& payload);
+	void onChannelData(int channel_idx, uint16 data_type, uint8* data, size_t data_len, int hops, const UniValue& payload);
 	void onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload);
 	void onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type);
 	void onStatusResponse(const string& pubkey_prefix, const string& status_data);

@@ -124,6 +124,7 @@ public:
 	virtual void onChanInfo(int channel_idx, const string& channelName, bool is_private, const UniValue& payload) {} // is_private = true if the channel encryption key isn't the standard derived one
 	virtual void onChanInfoComplete() {}
 	virtual void onChannelMessage(int channel_idx, const string& from, const string& text, int txt_type, int hops, const UniValue& payload) {}
+	virtual void onChannelData(int channel_idx, uint16 data_type, uint8* data, size_t data_len, int hops, const UniValue& payload) {}
 	virtual void onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload) {}
 	virtual void onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type) {} // this is called when DMs are seen on MQTT from other instances connected to MQTT
 	virtual void onStatusResponse(const string& pubkey_prefix, const string& status_data) {}

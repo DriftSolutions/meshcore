@@ -87,6 +87,7 @@ enum MESHCORE_RESPONSE_CODES : uint8 {
 	RESPONSE_CODE_CONTACT_MSG_RECV_V3  = 0x10,
 	RESPONSE_CODE_CHANNEL_MSG_RECV_V3  = 0x11,
 	RESPONSE_CODE_CHANNEL_INFO         = 0x12,
+	RESPONSE_CODE_CHANNEL_DATA_RECV    = 0x1B,
 	RESPONSE_CODE_ADVERTISEMENT        = 0x80,
 	RESPONSE_CODE_ACK                  = 0x82,
 	RESPONSE_CODE_MESSAGES_WAITING     = 0x83,
@@ -302,6 +303,16 @@ Bytes 11+: Message Text (UTF-8)
 	uint8  text_type;
 	uint32 timestamp;
 	// Bytes 11+: Message Text (UTF-8, variable length)
+};
+
+struct _PACKET_CHANNEL_DATA_RECV {
+	MESHCORE_RESPONSE_CODES packet_type;    // RESPONSE_CODE_CHANNEL_DATA_RECV
+	int8   snr;            // multiplied by 4
+	uint8  reserved[2];
+	uint8  channel_index;  // 0-7
+	uint8  path_length;
+	uint16  data_type;
+	// Data, variable length
 };
 
 enum CONTACT_TYPE : uint8 {

@@ -155,6 +155,31 @@ void MQTT_IRC_Client::onChannelMessage(int channel_idx, const string& from, cons
 	}
 }
 
+void MQTT_IRC_Client::onChannelData(int channel_idx, uint16 data_type, uint8* data, size_t data_len, int hops, const UniValue& payload) {
+	if (config.self_user.get() == NULL) {
+		return;
+	}
+
+	shared_ptr<MeshCoreChannel> chan;
+	if (!get_channel_by_meshcore_index(channel_idx, chan)) {
+		printf("[mqtt] Error getting channel for channel_index = %d\n", channel_idx);
+		return;
+	}
+
+	printf("[mqtt] [%s] Datagram: %s\n", chan->irc_name, bin2hex(data, data_len).c_str());
+
+	vector<string> parms = {
+		":" + config.irc.server_hostname,
+		"PRIVMSG",
+		chan->irc_name,
+		mprintf("Received datagram of type %u: %s\n", data_type, bin2hex(data, data_len).c_str())
+	};
+	if (!SendLineToAllAuthenticatedClients(parms)) {
+		// no clients are online and connected
+		AddOfflineMessage(parms);
+	}
+}
+
 void MQTT_IRC_Client::onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload) {
 	if (config.self_user.get() == NULL) {
 		return;
