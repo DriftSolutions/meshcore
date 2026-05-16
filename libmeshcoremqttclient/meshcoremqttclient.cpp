@@ -682,8 +682,8 @@ bool MeshCore_MQTT_Client::SendDirectMsg(const string& pubkey, const string& str
 	return ret;
 }
 
-bool MeshCore_MQTT_Client::SendDirectDatagram(const string& pubkey, const string& data, uint16 data_type) {
-	if (!connected || data.empty() || data_type == 0 || data_type == 0xFFFF || pubkey.empty()) {
+bool MeshCore_MQTT_Client::SendDirectDatagram(const string& pubkey, const string& data) {
+	if (!connected || data.empty() || pubkey.empty()) {
 		return false;
 	}
 
@@ -692,10 +692,9 @@ bool MeshCore_MQTT_Client::SendDirectDatagram(const string& pubkey, const string
 
 	UniValue payload(UniValue::VOBJ);
 	payload.pushKV("destination", pubkey);
-	payload.pushKV("data_type", data_type);
 	payload.pushKV("data", hex_data);
 
-	Log("Sending direct datagram to %s (type: %04X, Bytes: %u): %s", pubkey.c_str(), data_type, data.length(), hex_data.c_str());
+	Log("Sending direct datagram to %s (bytes: %u): %s", pubkey.c_str(), data.length(), hex_data.c_str());
 
 	return Send(topic, payload);
 }

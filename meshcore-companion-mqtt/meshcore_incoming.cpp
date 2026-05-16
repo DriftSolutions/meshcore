@@ -148,7 +148,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	// In theory, we should only be here if a command was just issued
-	assert(current_outgoing_command.get() != NULL);
+	//assert(current_outgoing_command.get() != NULL);
 	shared_ptr<MeshCoreCommand> current_command = current_outgoing_command;
 	current_outgoing_command.reset();
 

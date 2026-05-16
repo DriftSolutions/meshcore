@@ -11,6 +11,8 @@ shared_ptr<MeshCoreCommand> current_outgoing_command;
 
 void handleIncomingPackets();
 
+MeshCoreCommandAcknowledged::~MeshCoreCommandAcknowledged() {}
+
 /*
 void remove_outgoing_message(uint32 tag) {
 	auto x = outgoing_messages.find(tag);
@@ -281,30 +283,33 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	outgoing_commands.push_back(pack);
 }
 
-void queue_packet_direct_datagram(const string& pubkey_or_prefix, uint8 data_type, const uint8* data, size_t data_length) {
+void queue_packet_send_direct_datagram(const string& pubkey, const uint8* data, size_t data_length) {
 	if (data_length > MESHCORE_MAX_CHAN_DATAGRAM_LENGTH) {
 		printf("queue_packet_channel_datagram(): datagram too big!\n");
 		return;
 	}
-
-	static const uint8 zero_prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2] = { 0 };
-	uint8 prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2];
-	if (!is_valid_destination(pubkey_or_prefix)) {
-		printf("queue_packet_send_direct_msg(): Invalid destination: %s\n", pubkey_or_prefix.c_str());
+	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
+	uint8 key[MESHCORE_PUBKEY_LEN / 2];
+	if (!is_valid_pubkey(pubkey)) {
+		printf("queue_packet_send_status_request(): Invalid pubkey: %s\n", pubkey.c_str());
 		return;
 	}
-	if (!hex2bin(pubkey_or_prefix.c_str(), MESHCORE_PUBKEY_PREFIX_LEN, prefix, sizeof(prefix)) || !memcmp(prefix, zero_prefix, sizeof(prefix))) {
-		printf("queue_packet_send_direct_msg(): Error running hex2bin on %s !\n", pubkey_or_prefix.c_str());
+	if (!hex2bin(pubkey.c_str(), MESHCORE_PUBKEY_LEN, key, sizeof(key)) || !memcmp(key, zero_key, sizeof(key))) {
+		printf("queue_packet_send_status_request(): Error running hex2bin on %s !\n", pubkey.c_str());
 		return;
 	}
 
-	auto pack = make_shared<MeshCoreCommand>();
+	auto pack = make_shared<MeshCoreCommandStdRetry>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
-	buffer_append_int<uint8>(&buf, 0x32);
-	buffer_append(&buf, (const char*)prefix, sizeof(prefix));
-	buffer_append_int<uint8>(&buf, data_type);
-	//buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
+	/*
+	buffer_append_int<uint8>(&buf, CMD_SEND_CHANNEL_DATA);
+	buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
+	buffer_append_int<uint8>(&buf, channel_idx);
+	buffer_append(&buf, (const char *)data, data_length);
+	*/
+	buffer_append_int<uint8>(&buf, CMD_BINARY_REQ);
+	buffer_append(&buf, (const char*)key, sizeof(key));
 	buffer_append(&buf, (const char*)data, data_length);
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);

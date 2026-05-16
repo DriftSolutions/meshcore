@@ -166,8 +166,7 @@ void handle_incoming_commands() {
 			int channel_idx = cmd->parms["channel_index"].get_int();
 			int data_type = cmd->parms["data_type"].get_int();
 			string data = cmd->parms["data"].get_str();
-			if (channel_idx >= 0 && channel_idx <= MESHCORE_HIGHEST_CHANNEL && data_type != 0 && data_type != 0xFFFF && !data.empty() || data.length() % 2 != 0 || data.length() > MESHCORE_MAX_CHAN_DATAGRAM_LENGTH * 2) {
-
+			if (channel_idx >= 0 && channel_idx <= MESHCORE_HIGHEST_CHANNEL && data_type != 0 && data_type != 0xFFFF && !data.empty() && data.length() % 2 == 0 || data.length() <= MESHCORE_MAX_CHAN_DATAGRAM_LENGTH * 2) {
 				uint8 raw_len = (uint8)(data.length() / 2);
 				uint8* raw = (uint8*)malloc(raw_len);
 				if (hex2bin(data.c_str(), data.length(), raw, raw_len)) {
@@ -180,6 +179,33 @@ void handle_incoming_commands() {
 			}
 		}
 		printf("Error in send_channel_datagram: invalid channel_index, data_type, or data is invalid!\n");
+		return;
+	}
+
+	if (cmd->cmd == "send_direct_datagram") {
+		if (cmd->parms.exists("destination") && cmd->parms["destination"].isStr() && cmd->parms.exists("data") && cmd->parms["data"].isStr()) {
+			string destination = cmd->parms["destination"].get_str();
+			string data = cmd->parms["data"].get_str();
+			if (!destination.empty() && !data.empty() && data.length() % 2 == 0 && data.length() <= MESHCORE_MAX_CHAN_DATAGRAM_LENGTH * 2) {
+				if (is_valid_destination(destination)) {
+					uint8 raw_len = (uint8)(data.length() / 2);
+					uint8* raw = (uint8*)malloc(raw_len);
+					if (hex2bin(data.c_str(), data.length(), raw, raw_len)) {
+						queue_packet_send_direct_datagram(destination, raw, raw_len);
+					} else {
+						printf("Error in send_direct_datagram: error converting hex string to binary!\n");
+					}
+					free(raw);
+					return;
+				} else {
+					printf("Error in send_direct_datagram: invalid destination, must be a pubkey or pubkey prefix!\n");
+				}
+			} else {
+				printf("Error in send_direct_datagram: destination, data_type, or data is empty or not set!\n");
+			}
+		} else {
+			printf("Error in send_direct_datagram: invalid destination, data_type, or data is invalid!\n");
+		}
 		return;
 	}
 

@@ -85,7 +85,7 @@ public:
 	bool SendChannelMsg(int channel_idx, const string& str, int txt_type = 0);
 	bool SendChannelDatagram(int channel_idx, const string& data, uint16 data_type); // data_type can be anything except 0 or 0xFFFF. Maximum data length: 163 bytes
 	bool SendDirectMsg(const string& pubkey, const string& str, int txt_type = 0);
-	bool SendDirectDatagram(const string& pubkey, const string& data, uint16 data_type); // data_type can be anything except 0 or 0xFFFF
+	bool SendDirectDatagram(const string& pubkey, const string& data);
 	bool SendStatusRequest(const string& pubkey);
 
 	/**
