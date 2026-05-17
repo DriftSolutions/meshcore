@@ -5,17 +5,17 @@
 
 #include "meshmqtt.h"
 
-bool get_user_by_pubkey(const string& pubkey, shared_ptr<MeshCoreUser>& u) {
-	auto x = state.users.find(pubkey);
-	if (x != state.users.end()) {
+bool get_contact_by_pubkey(const string& pubkey, shared_ptr<MeshCoreContact>& u) {
+	auto x = state.contacts.find(pubkey);
+	if (x != state.contacts.end()) {
 		u = x->second;
 		return true;
 	}
 	return false;
 }
 
-bool get_user_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreUser>& out) {
-	for (auto& u : state.users) {
+bool get_contact_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreContact>& out) {
+	for (auto& u : state.contacts) {
 		if (!stricmp(u.second->pubkey_prefix, pubkey_prefix.c_str())) {
 			out = u.second;
 			return true;
@@ -29,7 +29,7 @@ string get_pubkey_from_pubkey_or_prefix(const string& pubkey_or_prefix) {
 		return pubkey_or_prefix;
 	}
 
-	shared_ptr<MeshCoreUser> u;
+	shared_ptr<MeshCoreContact> u;
 	if (u) {
 		return u->pubkey;
 	}
@@ -37,14 +37,14 @@ string get_pubkey_from_pubkey_or_prefix(const string& pubkey_or_prefix) {
 	return "";
 }
 
-void del_user_by_pubkey(const string& pubkey) {
-	auto x = state.users.find(pubkey);
-	if (x != state.users.end()) {
-		state.users.erase(x);
+void del_contact_by_pubkey(const string& pubkey) {
+	auto x = state.contacts.find(pubkey);
+	if (x != state.contacts.end()) {
+		state.contacts.erase(x);
 	}
 }
 
-void add_or_update_user(_PACKET_CONTACT* c) {
+void add_or_update_contact(_PACKET_CONTACT* c) {
 	UniValue obj(UniValue::VOBJ);
 	string pubkey = bin2hex(c->public_key, sizeof(c->public_key));
 
@@ -62,10 +62,10 @@ void add_or_update_user(_PACKET_CONTACT* c) {
 		}
 	}
 
-	shared_ptr<MeshCoreUser> u;
+	shared_ptr<MeshCoreContact> u;
 	bool is_new = false;
-	if (!get_user_by_pubkey(pubkey, u)) {
-		u = make_shared<MeshCoreUser>();
+	if (!get_contact_by_pubkey(pubkey, u)) {
+		u = make_shared<MeshCoreContact>();
 		u->updateMeshCorePubKey(pubkey);
 		is_new = true;
 	}
@@ -81,21 +81,21 @@ void add_or_update_user(_PACKET_CONTACT* c) {
 
 	if (is_new) {
 		if (config.meshcore.maxContactsListSize) {
-			while (state.users.size() >= config.meshcore.maxContactsListSize) {
+			while (state.contacts.size() >= config.meshcore.maxContactsListSize) {
 				// delete the oldest seen user
-				userMap::iterator toDel = state.users.end();
-				for (auto x = state.users.begin(); x != state.users.end(); x++) {
-					if (toDel == state.users.end() || x->second->last_seen < toDel->second->last_seen) {
+				contactMap::iterator toDel = state.contacts.end();
+				for (auto x = state.contacts.begin(); x != state.contacts.end(); x++) {
+					if (toDel == state.contacts.end() || x->second->last_seen < toDel->second->last_seen) {
 						toDel = x;
 					}
 				}
-				if (toDel != state.users.end()) {
-					state.users.erase(toDel);
+				if (toDel != state.contacts.end()) {
+					state.contacts.erase(toDel);
 				}
 			}
 		}
 
-		state.users[pubkey] = u;
+		state.contacts[pubkey] = u;
 
 		if (state.haveSentContactsList) {
 			mqtt_send_new_contact(u);
@@ -109,16 +109,16 @@ void add_or_update_user(_PACKET_CONTACT* c) {
 
 void clear_old_contacts() {
 	int64 ts = time(NULL) - config.meshcore.expireUnseenContacts;
-	for (auto x = state.users.begin(); x != state.users.end(); ) {
+	for (auto x = state.contacts.begin(); x != state.contacts.end(); ) {
 		if (x->second->last_seen < ts) {
-			x = state.users.erase(x);
+			x = state.contacts.erase(x);
 		} else {
 			x++;
 		}
 	}
 }
 
-void MeshCoreUser::ToUniValue(UniValue& obj) {
+void MeshCoreContact::ToUniValue(UniValue& obj) {
 	obj.clear();
 	obj.setObject();
 	obj.pushKV("type", type);
@@ -133,19 +133,19 @@ void MeshCoreUser::ToUniValue(UniValue& obj) {
 
 bool mqtt_send_contacts() {
 	UniValue root(UniValue::VOBJ);
-	for (auto& u : state.users) {
+	for (auto& u : state.contacts) {
 		UniValue obj(UniValue::VOBJ);
 		u.second->ToUniValue(obj);
 		root.pushKV(u.first, obj);
 	}
-	if (state.users.size() && mqtt_send(config.mqtt.topic_prefix + "/contacts", root, true)) {
+	if (state.contacts.size() && mqtt_send(config.mqtt.topic_prefix + "/contacts", root, true)) {
 		state.haveSentContactsList = true;
 		return true;
 	}
 	return false;
 }
 
-bool mqtt_send_new_contact(shared_ptr<MeshCoreUser>& u) {
+bool mqtt_send_new_contact(shared_ptr<MeshCoreContact>& u) {
 	UniValue obj(UniValue::VOBJ);
 	u->ToUniValue(obj);
 	return mqtt_send(config.mqtt.topic_prefix + "/new_contact", obj, false);

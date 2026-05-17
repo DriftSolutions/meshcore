@@ -402,7 +402,7 @@ bool Client::handleIncomingConnected(char* cmd, char* parms[], int nparms) {
 					vector<string> parms = {
 						u->irc_nick,
 						"meshcore",
-						u->meshcore_pubkey,
+						u->meshcore_pubkey[0] ? u->meshcore_pubkey : "unknown",
 						"*",
 						u->meshcore_nick
 					};

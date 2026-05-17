@@ -65,8 +65,8 @@ void handle_incoming_packet_push_notifications(uint8* pack, uint16 packlen) {
 	if (packet_type == RESPONSE_CODE_ADVERTISEMENT) {
 		if (packlen >= 33) {
 			string pubkey = bin2hex(pack + 1, 32);
-			shared_ptr<MeshCoreUser> u;
-			if (get_user_by_pubkey(pubkey, u)) {
+			shared_ptr<MeshCoreContact> u;
+			if (get_contact_by_pubkey(pubkey, u)) {
 				u->last_seen = time(NULL);
 			}
 			UniValue obj(UniValue::VOBJ);
@@ -78,7 +78,7 @@ void handle_incoming_packet_push_notifications(uint8* pack, uint16 packlen) {
 
 	if (packet_type == RESPONSE_CODE_CONTACT && packlen >= sizeof(_PACKET_CONTACT)) {
 		_PACKET_CONTACT* c = (_PACKET_CONTACT*)pack;
-		add_or_update_user(c);
+		add_or_update_contact(c);
 		return;
 	}
 
@@ -160,8 +160,8 @@ void handle_incoming_packet_push_notifications(uint8* pack, uint16 packlen) {
 
 		UniValue obj(UniValue::VOBJ);
 
-		shared_ptr<MeshCoreUser> u;
-		if (get_user_by_pubkey_prefix(pubkey_prefix, u)) {
+		shared_ptr<MeshCoreContact> u;
+		if (get_contact_by_pubkey_prefix(pubkey_prefix, u)) {
 			obj.pushKV("public_key", u->pubkey);
 		}
 		obj.pushKV("public_key_prefix", pubkey_prefix);
@@ -383,8 +383,8 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		_PACKET_CONTACT_MSG_RECV* msg = (_PACKET_CONTACT_MSG_RECV*)pack;
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
-		shared_ptr<MeshCoreUser> u;
-		if (get_user_by_pubkey_prefix(pubkey_prefix, u)) {
+		shared_ptr<MeshCoreContact> u;
+		if (get_contact_by_pubkey_prefix(pubkey_prefix, u)) {
 			obj.pushKV("public_key", u->pubkey);
 		}
 		obj.pushKV("public_key_prefix", pubkey_prefix);
@@ -413,8 +413,8 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		_PACKET_CONTACT_MSG_RECV_V3* msg = (_PACKET_CONTACT_MSG_RECV_V3*)pack;
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
-		shared_ptr<MeshCoreUser> u;
-		if (get_user_by_pubkey_prefix(pubkey_prefix, u)) {
+		shared_ptr<MeshCoreContact> u;
+		if (get_contact_by_pubkey_prefix(pubkey_prefix, u)) {
 			obj.pushKV("public_key", u->pubkey);
 		}
 		obj.pushKV("public_key_prefix", pubkey_prefix);

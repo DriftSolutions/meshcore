@@ -89,7 +89,7 @@ public:
 	int Write(const uint8* buf, int buflen);
 };
 
-class MeshCoreUser {
+class MeshCoreContact {
 private:
 	char _pubkey[MESHCORE_PUBKEY_LEN + 1] = { 0 };
 	char _pubkey_prefix[MESHCORE_PUBKEY_PREFIX_LEN + 1] = { 0 };
@@ -120,7 +120,7 @@ public:
 
 	void ToUniValue(UniValue& obj);
 };
-typedef map<string, shared_ptr<MeshCoreUser>> userMap;
+typedef map<string, shared_ptr<MeshCoreContact>> contactMap;
 
 class MeshCoreChannel {
 private:
@@ -262,7 +262,7 @@ struct MESHCORE_STATE {
 	string self_info;
 	string device_info;
 
-	userMap users;
+	contactMap contacts;
 	map<int, shared_ptr<MeshCoreChannel>> chans;
 
 	void reset() {
@@ -276,7 +276,7 @@ struct MESHCORE_STATE {
 		buffer_clear(&recvbuf);
 		buffer_clear(&sendbuf);
 
-		users.clear();
+		contacts.clear();
 		chans.clear();
 	}
 };
@@ -305,14 +305,14 @@ bool mqtt_send_channels();
 bool mqtt_send_channel(int idx);
 string DeriveChannelKey(const string& channelName);
 
-void add_or_update_user(_PACKET_CONTACT * c);
-bool get_user_by_pubkey(const string& pubkey, shared_ptr<MeshCoreUser>& u);
-bool get_user_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreUser>& u);
+void add_or_update_contact(_PACKET_CONTACT * c);
+bool get_contact_by_pubkey(const string& pubkey, shared_ptr<MeshCoreContact>& u);
+bool get_contact_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreContact>& u);
 string get_pubkey_from_pubkey_or_prefix(const string& pubkey_or_prefix);
-void del_user_by_pubkey(const string& pubkey);
+void del_contact_by_pubkey(const string& pubkey);
 void clear_old_contacts();
 bool mqtt_send_contacts();
-bool mqtt_send_new_contact(shared_ptr<MeshCoreUser>& u);
+bool mqtt_send_new_contact(shared_ptr<MeshCoreContact>& u);
 
 void queue_packet_app_start();
 void queue_packet_device_query();

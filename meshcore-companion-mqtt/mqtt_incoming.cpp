@@ -35,7 +35,7 @@ void handle_incoming_commands() {
 	
 	if (cmd->cmd == "get_contacts") {
 		bool force = (cmd->parms.exists("force_refresh") && cmd->parms["force_refresh"].isBool() && cmd->parms["force_refresh"].getBool());
-		if (force || state.users.size() == 0) {
+		if (force || state.contacts.size() == 0) {
 			update_contacts(true);
 		} else {
 			mqtt_send_contacts();

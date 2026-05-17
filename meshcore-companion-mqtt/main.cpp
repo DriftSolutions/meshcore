@@ -76,7 +76,7 @@ bool LoadConfig() {
 
 void do_shutdown() {
 	state.chans.clear();
-	state.users.clear();
+	state.contacts.clear();
 
 	mqtt_disconnect();
 	mosquitto_lib_cleanup();
