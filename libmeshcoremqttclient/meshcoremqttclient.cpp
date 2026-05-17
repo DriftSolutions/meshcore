@@ -201,8 +201,8 @@ void MeshCore_MQTT_Client::_handle_chan_info(const UniValue& payload) {
 	}
 }
 
-void MeshCore_MQTT_Client::cbChannelMessage(int channel_idx, const string& from, const char * text, int txt_type, int hops, const UniValue& payload) {
-	if (txt_type != 0 && txt_type != 3) {
+void MeshCore_MQTT_Client::cbChannelMessage(int channel_idx, const string& from, const char * text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload) {
+	if (txt_type != TXT_TYPE_PLAIN && txt_type != TXT_TYPE_NOTICE) {
 		return;
 	}
 	if (channel_idx < 0 || channel_idx > MESHCORE_HIGHEST_CHANNEL || from.empty() || text[0] == 0) {
@@ -211,15 +211,15 @@ void MeshCore_MQTT_Client::cbChannelMessage(int channel_idx, const string& from,
 
 	if (!strnicmp(text, (const char *)NOTICE_PREFIX, NOTICE_PREFIX_LEN)) {
 		// is a NOTICE
-		txt_type = 3;
+		txt_type = TXT_TYPE_NOTICE;
 		text += NOTICE_PREFIX_LEN;
 	}
 
 	onChannelMessage(channel_idx, from, text, txt_type, hops, payload);
 }
 
-void MeshCore_MQTT_Client::cbDirectMessage(const string& pubkey_prefix, const char* text, int txt_type, int hops, const UniValue& payload) {
-	if (txt_type != 0 && txt_type != 3) {
+void MeshCore_MQTT_Client::cbDirectMessage(const string& pubkey_prefix, const char* text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload) {
+	if (txt_type != TXT_TYPE_PLAIN && txt_type != TXT_TYPE_NOTICE) {
 		return;
 	}
 	/*
@@ -231,7 +231,7 @@ void MeshCore_MQTT_Client::cbDirectMessage(const string& pubkey_prefix, const ch
 
 	if (!strnicmp(text, (const char*)NOTICE_PREFIX, NOTICE_PREFIX_LEN)) {
 		// is a NOTICE
-		txt_type = 3;
+		txt_type = TXT_TYPE_NOTICE;
 		text += NOTICE_PREFIX_LEN;
 	}
 
@@ -279,7 +279,7 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		}
 
 		int channel_idx = payload.exists("channel_index") && payload["channel_index"].isNum() ? payload["channel_index"].get_int() : -1;
-		int txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? payload["txt_type"].get_int() : 0;
+		MESHCORE_TEXT_TYPES txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? (MESHCORE_TEXT_TYPES)payload["txt_type"].get_int() : TXT_TYPE_PLAIN;
 		string text = payload.exists("message") && payload["message"].isStr() ? payload["message"].get_str() : "";
 
 		UniValue obj(UniValue::VOBJ);
@@ -295,7 +295,7 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		}
 
 		string destination = payload.exists("destination") && payload["destination"].isStr() ? payload["destination"].get_str() : "";
-		int txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? payload["txt_type"].get_int() : 0;
+		MESHCORE_TEXT_TYPES txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? (MESHCORE_TEXT_TYPES)payload["txt_type"].get_int() : TXT_TYPE_PLAIN;
 		string text = payload.exists("message") && payload["message"].isStr() ? payload["message"].get_str() : "";
 		if (destination.empty() || text.empty()) { return; }
 
@@ -352,7 +352,7 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		string msg_text = payload.exists("message") && payload["message"].isStr() ? payload["message"].get_str() : "";
 
 		int channel_idx = payload.exists("channel_index") && payload["channel_index"].isNum() ? payload["channel_index"].get_int() : 0;
-		int txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? payload["txt_type"].get_int() : 0;
+		MESHCORE_TEXT_TYPES txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? (MESHCORE_TEXT_TYPES)payload["txt_type"].get_int() : TXT_TYPE_PLAIN;
 		int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
 
 		cbChannelMessage(channel_idx, from, msg_text.c_str(), txt_type, hops, payload);
@@ -392,7 +392,7 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		string text = payload.exists("message") && payload["message"].isStr() ? payload["message"].get_str() : "";
 		if (from.empty() || text.empty()) { return; }
 
-		int txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? payload["txt_type"].get_int() : 0;
+		MESHCORE_TEXT_TYPES txt_type = payload.exists("txt_type") && payload["txt_type"].isNum() ? (MESHCORE_TEXT_TYPES)payload["txt_type"].get_int() : TXT_TYPE_PLAIN;
 		int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
 
 		cbDirectMessage(from, text.c_str(), txt_type, hops, payload);
@@ -568,7 +568,7 @@ bool MeshCore_MQTT_Client::SendChannelMsg(int idx, const string& str, MESHCORE_T
 	bool ret = false;
 
 	for (auto& line : lines) {
-		if (txt_type == 3) {
+		if (txt_type == TXT_TYPE_NOTICE) {
 			line.insert(0, (const char*)NOTICE_PREFIX);
 		}
 		payload.pushKV("message", line);
@@ -686,7 +686,7 @@ bool MeshCore_MQTT_Client::SendDirectMsg(const string& pubkey, const string& str
 	bool ret = false;
 
 	for (auto& line : lines) {
-		if (txt_type == 3) {
+		if (txt_type == TXT_TYPE_NOTICE) {
 			line.insert(0, (const char*)NOTICE_PREFIX);
 		}
 

@@ -148,7 +148,7 @@ public:
 
 	void addUserToChannel(shared_ptr<MeshCoreUser>& user);
 	void partUserFromChannel(shared_ptr<MeshCoreUser>& user, bool send_part_notices, bool remove_from_user_list);
-	void onReceiveMessage(shared_ptr<MeshCoreUser>& user, const char* text, int txt_type);
+	void onReceiveMessage(shared_ptr<MeshCoreUser>& user, const char* text, MESHCORE_TEXT_TYPES txt_type);
 
 	void setNameFromMeshCore(const string& name);
 	void sendNamesTo(Client* c);
@@ -272,10 +272,10 @@ public:
 	void onSelfInfo(const string& adv_name, const string& pubkey, const UniValue& payload);
 	void onChanInfo(int channel_idx, const string& channelName, bool is_private, const UniValue& payload);
 	void onChanInfoComplete();
-	void onChannelMessage(int channel_idx, const string& from, const string& text, int txt_type, int hops, const UniValue& payload);
+	void onChannelMessage(int channel_idx, const string& from, const string& text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload);
 	void onChannelData(int channel_idx, uint16 data_type, uint8* data, size_t data_len, int hops, const UniValue& payload);
-	void onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload);
-	void onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type);
+	void onDirectMessage(const string& pubkey_prefix, const string& text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload);
+	void onDirectMessageOnMQTT(const string& destination, const string& text, MESHCORE_TEXT_TYPES txt_type);
 	void onDirectData(const string& pubkey_prefix, uint8* data, size_t data_len, int hops, const UniValue& payload);
 	void onStatusResponse(const string& pubkey_prefix, const UniValue& payload);
 };
@@ -347,8 +347,6 @@ int64 parse_duration_str(const string& str);
 
 void mosquitto_disconnect();
 void mosquitto_loop();
-//bool send_meshcore_msg_chan(int idx, const char* str, int txt_type);
-//bool send_meshcore_msg_dm(const char* nick, const char* pubkey, const char* str, int txt_type);
 
 void add_channel(int channel_idx, const string& meshcore_name, bool is_private);
 bool get_channel_by_meshcore_index(int channel_idx, shared_ptr<MeshCoreChannel>& chan);

@@ -192,7 +192,7 @@ bool MeshCoreChannelUser::shouldPartUser() {
 	return (last_message_time < time(NULL) - config.irc.part_users_after);
 }
 
-void MeshCoreChannel::onReceiveMessage(shared_ptr<MeshCoreUser>& user, const char* text, int txt_type) {
+void MeshCoreChannel::onReceiveMessage(shared_ptr<MeshCoreUser>& user, const char* text, MESHCORE_TEXT_TYPES txt_type) {
 	if (!isUserInChannel(user)) {
 		addUserToChannel(user);
 	}
@@ -211,7 +211,7 @@ void MeshCoreChannel::onReceiveMessage(shared_ptr<MeshCoreUser>& user, const cha
 
 	vector<string> parms = {
 		":" + user->hostmask,
-		(txt_type == 3) ? "NOTICE" : "PRIVMSG",
+		(txt_type == TXT_TYPE_NOTICE) ? "NOTICE" : "PRIVMSG",
 		irc_name,
 		text
 	};

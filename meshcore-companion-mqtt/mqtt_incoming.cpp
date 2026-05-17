@@ -73,7 +73,8 @@ void handle_incoming_commands() {
 			int channel_idx = cmd->parms["channel_index"].get_int();
 			string msg = cmd->parms["message"].get_str();
 			if (channel_idx >= 0 && channel_idx <= MESHCORE_HIGHEST_CHANNEL && !msg.empty()) {
-				queue_packet_send_channel_msg((uint8)channel_idx, msg);
+				MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN;// (cmd->parms.exists("txt_type") && cmd->parms["txt_type"].isNum()) ? (MESHCORE_TEXT_TYPES)cmd->parms["txt_type"].get_int() : TXT_TYPE_PLAIN;
+				queue_packet_send_channel_msg((uint8)channel_idx, msg, txt_type);
 			} else {
 				printf("Error in send_channel_msg: channel_index or message is empty, invalid, or not set!\n");
 			}

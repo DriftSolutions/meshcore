@@ -124,7 +124,7 @@ void split_incoming_into_lines(const string& line, vector<string>& lines) {
 	free(tmp);
 }
 
-void MQTT_IRC_Client::onChannelMessage(int channel_idx, const string& from, const string& text, int txt_type, int hops, const UniValue& payload) {
+void MQTT_IRC_Client::onChannelMessage(int channel_idx, const string& from, const string& text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload) {
 	if (config.self_user.get() == NULL) {
 		return;
 	}
@@ -180,7 +180,7 @@ void MQTT_IRC_Client::onChannelData(int channel_idx, uint16 data_type, uint8* da
 	}
 }
 
-void MQTT_IRC_Client::onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload) {
+void MQTT_IRC_Client::onDirectMessage(const string& pubkey_prefix, const string& text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload) {
 	if (config.self_user.get() == NULL) {
 		return;
 	}
@@ -239,7 +239,7 @@ void MQTT_IRC_Client::onDirectData(const string& pubkey_prefix, uint8* data, siz
 	user->onAction();
 }
 
-void MQTT_IRC_Client::onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type) {
+void MQTT_IRC_Client::onDirectMessageOnMQTT(const string& destination, const string& text, MESHCORE_TEXT_TYPES txt_type) {
 	if (config.self_user.get() == NULL) {
 		return;
 	}
@@ -264,7 +264,7 @@ void MQTT_IRC_Client::onDirectMessageOnMQTT(const string& destination, const str
 	for (auto& line : lines) {
 		vector<string> parms = {
 			":" + config.self_user->hostmask,
-			(txt_type == 3) ? "NOTICE" : "PRIVMSG",
+			(txt_type == TXT_TYPE_NOTICE) ? "NOTICE" : "PRIVMSG",
 			user->irc_nick,
 			line
 		};
