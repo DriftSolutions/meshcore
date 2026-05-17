@@ -132,6 +132,7 @@
     <ClCompile Include="channels.cpp" />
     <ClCompile Include="contacts.cpp" />
     <ClCompile Include="driver_serial.cpp" />
+    <ClCompile Include="meshcore_commands.cpp" />
     <ClCompile Include="mqtt_incoming.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="meshcore_incoming.cpp" />

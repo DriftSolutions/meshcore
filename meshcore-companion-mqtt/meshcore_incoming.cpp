@@ -54,10 +54,10 @@ bool is_duplicate(uint8* pack, uint16 packlen, bool dont_add_record = false) {
 	return false;
 }
 
-void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
+void handle_incoming_packet_push_notifications(uint8* pack, uint16 packlen) {
 	const MESHCORE_RESPONSE_CODES& packet_type = (MESHCORE_RESPONSE_CODES)pack[0];
 
-	if (packet_type == RESPONSE_CODE_LOG_DATA) {
+	if (packet_type == RESPONSE_CODE_LOG_DATA || packet_type == PUSH_CODE_NEW_ADVERT) {
 		//ignore
 		return;
 	}
@@ -208,7 +208,7 @@ void handleIncomingPacketPushNotifications(uint8* pack, uint16 packlen) {
 	int x = 1;
 }
 
-void handleIncomingPacket(uint8* pack, uint16 packlen) {
+void handle_incoming_packet(uint8* pack, uint16 packlen) {
 	const MESHCORE_RESPONSE_CODES& packet_type = (MESHCORE_RESPONSE_CODES)pack[0];
 	mesh_log("Received packet (%s, %u bytes):\n", GetMeshCoreResponseString(packet_type).c_str(), packlen);
 	if (config.meshcore.log_to_console) {
@@ -219,7 +219,7 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type >= 0x80 || packet_type == RESPONSE_CODE_CONTACT || packet_type == RESPONSE_CODE_CONTACT_END) {
-		handleIncomingPacketPushNotifications(pack, packlen);
+		handle_incoming_packet_push_notifications(pack, packlen);
 		return;
 	}
 
@@ -523,22 +523,22 @@ void handleIncomingPacket(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == RESPONSE_CODE_NO_MORE_MSGS) {
-		state.lastMessageCheck = time(NULL);
+		state.lastNoMoreMessages = time(NULL);
 		return;
 	}
 
 	return;
 }
 
-void handleIncomingPackets() {
-	DSL_BUFFER& recvbuf = config.recvbuf;
+void handle_incoming_packets() {
+	DSL_BUFFER& recvbuf = state.recvbuf;
 
 	while (recvbuf.len > 0) {
 		if (recvbuf.udata == NULL || recvbuf.len <= 0) {
 			break;
 		}
 
-		uint8* begin = (uint8*)memchr(recvbuf.udata, COMPANION_FRAME_START, recvbuf.len);
+		uint8* begin = (uint8*)memchr(recvbuf.udata, COMPANION_INCOMING_FRAME_START, recvbuf.len);
 		if (begin == NULL) {
 			// no frame start marker, clear the buffer
 			buffer_clear(&recvbuf);
@@ -563,7 +563,7 @@ void handleIncomingPackets() {
 			break;
 		}
 
-		handleIncomingPacket(begin + COMPANION_FRAME_HEADER_SIZE, packlen);
+		handle_incoming_packet(begin + COMPANION_FRAME_HEADER_SIZE, packlen);
 
 		buffer_remove_front(&recvbuf, COMPANION_FRAME_HEADER_SIZE + packlen);
 	}

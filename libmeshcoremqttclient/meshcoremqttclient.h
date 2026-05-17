@@ -91,9 +91,9 @@ public:
 
 	bool SendChannelMsg(int channel_idx, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 	bool SendChannelDatagram(int channel_idx, const string& data, uint16 data_type); // data_type can be anything except 0 or 0xFFFF. Maximum data length: 163 bytes
-	bool SendDirectMsg(const string& pubkey, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
-	bool SendDirectDatagram(const string& pubkey, const string& data);
-	bool SendStatusRequest(const string& pubkey);
+	bool SendDirectMsg(const string& pubkey_or_prefix, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
+	bool SendDirectDatagram(const string& pubkey_or_prefix, const string& data);
+	bool SendStatusRequest(const string& pubkey_or_prefix);
 
 	/**
 	* If the channel starts with # or the case-sensitive string "Public" and secret_key == "", then we will derive the key automatically. Otherwise will return false.
@@ -130,18 +130,18 @@ public:
 	virtual void onSelfInfo(const string& adv_name, const string& pubkey, const UniValue& payload) {}
 	virtual void onChanInfo(int channel_idx, const string& channelName, bool is_private, const UniValue& payload) {} // is_private = true if the channel encryption key isn't the standard derived one
 	virtual void onChanInfoComplete() {}
-	virtual void onChannelMessage(int channel_idx, const string& from, const string& text, int txt_type, int hops, const UniValue& payload) {}
+	virtual void onChannelMessage(int channel_idx, const string& from, const string& text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload) {}
 	virtual void onChannelData(int channel_idx, uint16 data_type, uint8* data, size_t data_len, int hops, const UniValue& payload) {}
-	virtual void onDirectMessage(const string& pubkey_prefix, const string& text, int txt_type, int hops, const UniValue& payload) {}
+	virtual void onDirectMessage(const string& pubkey_prefix, const string& text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload) {}
 	virtual void onDirectData(const string& pubkey_prefix, uint8* data, size_t data_len, int hops, const UniValue& payload) {}
-	virtual void onDirectMessageOnMQTT(const string& destination, const string& text, int txt_type) {} // this is called when DMs are seen on MQTT from other instances connected to MQTT
+	virtual void onDirectMessageOnMQTT(const string& destination, const string& text, MESHCORE_TEXT_TYPES txt_type) {} // this is called when DMs are seen on MQTT from other instances connected to MQTT
 	virtual void onStatusResponse(const string& pubkey_prefix, const UniValue& payload) {}
 	virtual void onBatteryAndStorageInfo(uint16 millivolts, uint32 used_storage, uint32 total_storage) {}
 
 	// Internal callbacks
 	void cbConnected();
 	void cbDisconnected(int rc);
-	void cbChannelMessage(int channel_idx, const string& from, const char* text, int txt_type, int hops, const UniValue& payload);
-	void cbDirectMessage(const string& pubkey_prefix, const char* text, int txt_type, int hops, const UniValue& payload);
+	void cbChannelMessage(int channel_idx, const string& from, const char* text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload);
+	void cbDirectMessage(const string& pubkey_prefix, const char* text, MESHCORE_TEXT_TYPES txt_type, int hops, const UniValue& payload);
 	void cbRecvMQTT(const char* topic, const void* payload, int payloadlen);
 };

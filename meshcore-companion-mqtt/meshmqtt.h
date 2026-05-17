@@ -25,7 +25,7 @@
 #define MESHCORE_MAX_CHAN_DATAGRAM_LENGTH 163
 #define MESHCORE_MAX_DIRECT_DATAGRAM_LENGTH (MESHCORE_MAX_PACKET_PAYLOAD - 16)
 
-#define COMPANION_FRAME_START 0x3E
+#define COMPANION_INCOMING_FRAME_START 0x3E
 #define COMPANION_OUTGOING_FRAME_START 0x3C
 #define COMPANION_FRAME_HEADER_SIZE 3
 #define COMPANION_MAX_FRAME_SIZE 300
@@ -202,9 +202,6 @@ public:
 	bool shutdown_now = false;
 
 	shared_ptr<IO_Driver> io_driver;
-	DSL_BUFFER recvbuf = { 0 }; // I/O receive buffer
-	DSL_BUFFER sendbuf = { 0 }; // I/O send buffer	
-
 	queue<shared_ptr<MQTT_Command>> incoming_commands;
 
 	struct {
@@ -251,11 +248,12 @@ public:
 extern CONFIG config;
 
 struct MESHCORE_STATE {
-	int64 lastMessageCheck = 0;
+	DSL_BUFFER recvbuf = { 0 }; // I/O receive buffer
+	DSL_BUFFER sendbuf = { 0 }; // I/O send buffer	
 
+	int64 lastNoMoreMessages = 0;
 	int64 lastContactsFullUpdate = 0;
 	int64 lastContactsPartialUpdate = 0;
-	//int64 lastContactsListReceived = 0;
 	uint32 lastContactModTime = 0;
 	bool haveSentContactsList = false;
 
@@ -268,12 +266,15 @@ struct MESHCORE_STATE {
 	map<int, shared_ptr<MeshCoreChannel>> chans;
 
 	void reset() {
-		lastContactsPartialUpdate = lastContactsFullUpdate = 0;
+		lastNoMoreMessages = lastContactsPartialUpdate = lastContactsFullUpdate = 0;
 		lastContactModTime = 0;
 		haveSentContactsList = false;
 
 		self_info.clear();
 		device_info.clear();
+
+		buffer_clear(&recvbuf);
+		buffer_clear(&sendbuf);
 
 		users.clear();
 		chans.clear();
@@ -282,6 +283,7 @@ struct MESHCORE_STATE {
 extern MESHCORE_STATE state;
 
 void meshcore_work();
+void meshcore_close();
 void mesh_log(const char* fmt, ...);
 
 void handle_incoming_commands();
@@ -306,6 +308,7 @@ string DeriveChannelKey(const string& channelName);
 void add_or_update_user(_PACKET_CONTACT * c);
 bool get_user_by_pubkey(const string& pubkey, shared_ptr<MeshCoreUser>& u);
 bool get_user_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreUser>& u);
+string get_pubkey_from_pubkey_or_prefix(const string& pubkey_or_prefix);
 void del_user_by_pubkey(const string& pubkey);
 void clear_old_contacts();
 bool mqtt_send_contacts();
@@ -327,7 +330,7 @@ void queue_swap_channels(uint8 channel_idx_1, uint8 channel_idx_2);
 void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const uint8 * data, size_t data_length);
 void queue_packet_send_direct_datagram(const string& pubkey, const uint8* data, size_t data_length);
 
-void handleIncomingPackets();
+void handle_incoming_packets();
 void remove_outgoing_message(uint32 tag);
 
 bool is_valid_destination(const string& destination); // accepts pubkey or pubkey_prefix

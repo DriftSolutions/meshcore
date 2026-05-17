@@ -5,6 +5,38 @@
 
 #include "meshmqtt.h"
 
+bool is_valid_destination(const string& str) {
+	if (str.length() != MESHCORE_PUBKEY_LEN && str.length() != MESHCORE_PUBKEY_PREFIX_LEN) {
+		return false;
+	}
+	return (strspn(str.c_str(), "0123456789abcdef") == str.length());
+}
+
+bool is_valid_pubkey(const string& str) {
+	if (str.length() != MESHCORE_PUBKEY_LEN) {
+		return false;
+	}
+	return (strspn(str.c_str(), "0123456789abcdef") == str.length());
+}
+
+string DeriveChannelKey(const string& channelName) {
+	if (channelName == "Public") {
+		return "\x8b\x33\x87\xe9\xc5\xcd\xea\x6a\xc9\xe5\xed\xba\xa1\x15\xcd\x72";
+	}
+
+	char* tmp = strdup(channelName.c_str());
+	strtrim(tmp);
+	string input = (tmp[0] == '#') ? tmp : string("#") + tmp;
+	free(tmp);
+
+	char key[33] = { 0 };
+	if (!hashdata("sha256", (const uint8*)input.c_str(), input.length(), key, sizeof(key), true)) {
+		return "";
+	}
+
+	return string(key, MESHCORE_CHAN_SECRET_LEN / 2);
+}
+
 string GetMeshCoreCommandString(MESHCORE_COMMAND_CODES cmd) {
 	switch (cmd) {
 		case CMD_APP_START:               return "CMD_APP_START";
@@ -95,6 +127,7 @@ string GetMeshCoreResponseString(MESHCORE_RESPONSE_CODES resp) {
 		case RESPONSE_CODE_MESSAGES_WAITING:     return "RESPONSE_CODE_MESSAGES_WAITING";
 		case RESPONSE_CODE_STATUS_RESPONSE:      return "RESPONSE_CODE_STATUS_RESPONSE";
 		case RESPONSE_CODE_LOG_DATA:             return "RESPONSE_CODE_LOG_DATA";
+		case PUSH_CODE_NEW_ADVERT:               return "PUSH_CODE_NEW_ADVERT";
 		case RESPONSE_CODE_CONTACT_DELETED:      return "RESPONSE_CODE_CONTACT_DELETED";
 		default: {
 			char buf[32];

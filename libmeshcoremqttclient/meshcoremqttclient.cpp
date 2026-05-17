@@ -651,15 +651,15 @@ bool MeshCore_MQTT_Client::SwapChannelConfig(int channel_index_1, int channel_in
 	return Send(topic, payload);
 }
 
-bool MeshCore_MQTT_Client::SendStatusRequest(const string& pubkey) {
-	if (!connected || pubkey.empty()) {
+bool MeshCore_MQTT_Client::SendStatusRequest(const string& pubkey_or_prefix) {
+	if (!connected || pubkey_or_prefix.empty()) {
 		return false;
 	}
 
 	string topic = string(topic_prefix) + "/command/send_status_request";
 
 	UniValue payload(UniValue::VOBJ);
-	payload.pushKV("public_key", pubkey);
+	payload.pushKV("destination", pubkey_or_prefix);
 
 	return Send(topic, payload);
 }

@@ -100,16 +100,16 @@ void handle_incoming_commands() {
 	}
 
 	if (cmd->cmd == "send_status_request") {
-		if (cmd->parms.exists("public_key") && cmd->parms["public_key"].isStr()) {
-			string public_key = cmd->parms["public_key"].get_str();
-			if (!public_key.empty()) {
-				if (is_valid_pubkey(public_key)) {
-					queue_packet_send_status_request(public_key);
+		if (cmd->parms.exists("destination") && cmd->parms["destination"].isStr()) {
+			string destination = cmd->parms["destination"].get_str();
+			if (!destination.empty()) {
+				if (is_valid_destination(destination)) {
+					queue_packet_send_status_request(destination);
 				} else {
 					printf("Error in send_status_request: invalid destination, must be a pubkey or pubkey prefix!\n");
 				}
 			} else {
-				printf("Error in send_status_request: destination or message is empty or not set!\n");
+				printf("Error in send_status_request: destination is empty or not set!\n");
 			}
 		}
 		return;

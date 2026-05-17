@@ -81,6 +81,10 @@ void do_shutdown() {
 	mqtt_disconnect();
 	mosquitto_lib_cleanup();
 
+	while (config.incoming_commands.size()) {
+		config.incoming_commands.pop();
+	}
+
 	if (config.mqtt.log_fp != NULL) {
 		fclose(config.mqtt.log_fp);
 		config.mqtt.log_fp = NULL;
@@ -88,14 +92,14 @@ void do_shutdown() {
 
 	if (config.io_driver) {
 		printf("Closing I/O driver...\n");
-		config.io_driver.reset();
+		meshcore_close();
 	}
 
-	if (config.recvbuf.data) {
-		buffer_free(&config.recvbuf);
+	if (state.recvbuf.data) {
+		buffer_free(&state.recvbuf);
 	}
-	if (config.sendbuf.data) {
-		buffer_free(&config.sendbuf);
+	if (state.sendbuf.data) {
+		buffer_free(&state.sendbuf);
 	}
 
 	printf("Goodbye.\n");
@@ -152,8 +156,8 @@ int main(int argc, const char* argv[]) {
 	}
 	atexit(do_shutdown);
 
-	buffer_init(&config.recvbuf);
-	buffer_init(&config.sendbuf);
+	buffer_init(&state.recvbuf);
+	buffer_init(&state.sendbuf);
 
 	if (!mqtt_connect()) {
 		exit(1);

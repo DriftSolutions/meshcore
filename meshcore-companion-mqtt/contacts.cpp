@@ -24,6 +24,19 @@ bool get_user_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreU
 	return false;
 }
 
+string get_pubkey_from_pubkey_or_prefix(const string& pubkey_or_prefix) {
+	if (pubkey_or_prefix.length() == MESHCORE_PUBKEY_LEN) {
+		return pubkey_or_prefix;
+	}
+
+	shared_ptr<MeshCoreUser> u;
+	if (u) {
+		return u->pubkey;
+	}
+
+	return "";
+}
+
 void del_user_by_pubkey(const string& pubkey) {
 	auto x = state.users.find(pubkey);
 	if (x != state.users.end()) {
