@@ -223,6 +223,33 @@ void queue_packet_send_direct_datagram(const string& pubkey, const uint8* data, 
 }
 */
 
+void queue_packet_login(const string& pubkey_or_prefix, const string& pass) {
+	string pubkey = get_pubkey_from_pubkey_or_prefix(pubkey_or_prefix);
+
+	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
+	uint8 key[MESHCORE_PUBKEY_LEN / 2];
+	if (!is_valid_pubkey(pubkey)) {
+		printf("queue_packet_login(): Invalid pubkey: %s\n", pubkey.c_str());
+		return;
+	}
+	if (!hex2bin(pubkey.c_str(), MESHCORE_PUBKEY_LEN, key, sizeof(key)) || !memcmp(key, zero_key, sizeof(key))) {
+		printf("queue_packet_login(): Error running hex2bin on %s !\n", pubkey.c_str());
+		return;
+	}
+
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, 0x1A);
+	buffer_append(&buf, (const char*)key, sizeof(key));
+	buffer_append(&buf, pass.c_str(), pass.length());
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+
+	pack->expected_responses = { RESPONSE_CODE_MSG_SENT };
+	outgoing_commands.push_back(pack);
+}
+
 void queue_packet_send_status_request(const string& pubkey_or_prefix) {
 	string pubkey = get_pubkey_from_pubkey_or_prefix(pubkey_or_prefix);
 
