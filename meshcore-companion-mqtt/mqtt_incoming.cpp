@@ -76,7 +76,7 @@ void handle_incoming_commands() {
 				MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN;// (cmd->parms.exists("txt_type") && cmd->parms["txt_type"].isNum()) ? (MESHCORE_TEXT_TYPES)cmd->parms["txt_type"].get_int() : TXT_TYPE_PLAIN;
 				queue_packet_send_channel_msg((uint8)channel_idx, msg, txt_type);
 			} else {
-				printf("Error in send_channel_msg: channel_index or message is empty, invalid, or not set!\n");
+				mqtt_error("Error in send_channel_msg: channel_index or message is empty, invalid, or not set!");
 			}
 		}
 		return;
@@ -91,10 +91,10 @@ void handle_incoming_commands() {
 					MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN;// (cmd->parms.exists("txt_type") && cmd->parms["txt_type"].isNum()) ? (MESHCORE_TEXT_TYPES)cmd->parms["txt_type"].get_int() : TXT_TYPE_PLAIN;
 					queue_packet_send_direct_msg(destination, msg, 0, txt_type);
 				} else {
-					printf("Error in send_direct_msg: invalid destination, must be a pubkey or pubkey prefix!\n");
+					mqtt_error("Error in send_direct_msg: invalid destination, must be a pubkey or pubkey prefix!");
 				}
 			} else {
-				printf("Error in send_direct_msg: destination or message is empty or not set!\n");
+				mqtt_error("Error in send_direct_msg: destination or message is empty or not set!");
 			}
 		}
 		return;
@@ -107,10 +107,10 @@ void handle_incoming_commands() {
 				if (is_valid_destination(destination)) {
 					queue_packet_send_status_request(destination);
 				} else {
-					printf("Error in send_status_request: invalid destination, must be a pubkey or pubkey prefix!\n");
+					mqtt_error("Error in send_status_request: invalid destination, must be a pubkey or pubkey prefix!");
 				}
 			} else {
-				printf("Error in send_status_request: destination is empty or not set!\n");
+				mqtt_error("Error in send_status_request: destination is empty or not set!");
 			}
 		}
 		return;
@@ -125,10 +125,10 @@ void handle_incoming_commands() {
 
 				queue_packet_set_channel_config((uint8)channel_idx, name, key);
 			} else {
-				printf("Error in erase_channel: channel_index is out of range or channel_name is empty!\n");
+				mqtt_error("Error in erase_channel: channel_index is out of range or channel_name is empty!");
 			}
 		} else {
-			printf("Error in set_channel_config: invalid channel_index or channel_name!\n");
+			mqtt_error("Error in set_channel_config: invalid channel_index or channel_name!");
 		}
 		return;
 	}
@@ -139,10 +139,10 @@ void handle_incoming_commands() {
 			if (ind >= 0 && ind <= MESHCORE_HIGHEST_CHANNEL) {
 				queue_packet_erase_channel(ind);
 			} else {
-				printf("Error in erase_channel: channel_index is out of range!\n");
+				mqtt_error("Error in erase_channel: channel_index is out of range!");
 			}
 		} else {
-			printf("Error in erase_channel: invalid channel_index!\n");
+			mqtt_error("Error in erase_channel: invalid channel_index!");
 		}
 		return;
 	}
@@ -154,10 +154,10 @@ void handle_incoming_commands() {
 			if (channel_index_1 >= 0 && channel_index_1 <= MESHCORE_HIGHEST_CHANNEL && channel_index_2 >= 0 && channel_index_2 <= MESHCORE_HIGHEST_CHANNEL) {
 				queue_swap_channels(channel_index_1, channel_index_2);
 			} else {
-				printf("Error in swap_channels: channel_index_1 and/or channel_index_2 out of range!\n");
+				mqtt_error("Error in swap_channels: channel_index_1 and/or channel_index_2 out of range!");
 			}
 		} else {
-			printf("Error in swap_channels: invalid channel_index_1 and/or channel_index_2 is invalid!\n");
+			mqtt_error("Error in swap_channels: invalid channel_index_1 and/or channel_index_2 is invalid!");
 		}
 		return;
 	}
@@ -173,13 +173,13 @@ void handle_incoming_commands() {
 				if (hex2bin(data.c_str(), data.length(), raw, raw_len)) {
 					queue_packet_channel_datagram(channel_idx, data_type, raw, raw_len);
 				} else {
-					printf("Error in send_channel_datagram: error converting hex string to binary!\n");
+					mqtt_error("Error in send_channel_datagram: error converting hex string to binary!");
 				}
 				free(raw);
 				return;
 			}
 		}
-		printf("Error in send_channel_datagram: invalid channel_index, data_type, or data is invalid!\n");
+		mqtt_error("Error in send_channel_datagram: invalid channel_index, data_type, or data is invalid!");
 		return;
 	}
 
@@ -195,18 +195,18 @@ void handle_incoming_commands() {
 						//queue_packet_send_direct_datagram(destination, raw, raw_len);
 						queue_packet_send_direct_msg(destination, string((const char *)raw, raw_len), 0, TXT_TYPE_CLI_DATA);
 					} else {
-						printf("Error in send_direct_datagram: error converting hex string to binary!\n");
+						mqtt_error("Error in send_direct_datagram: error converting hex string to binary!");
 					}
 					free(raw);
 					return;
 				} else {
-					printf("Error in send_direct_datagram: invalid destination, must be a pubkey or pubkey prefix!\n");
+					mqtt_error("Error in send_direct_datagram: invalid destination, must be a pubkey or pubkey prefix!");
 				}
 			} else {
-				printf("Error in send_direct_datagram: destination, data_type, or data is empty or not set!\n");
+				mqtt_error("Error in send_direct_datagram: destination, data_type, or data is empty or not set!");
 			}
 		} else {
-			printf("Error in send_direct_datagram: invalid destination, data_type, or data is invalid!\n");
+			mqtt_error("Error in send_direct_datagram: invalid destination, data_type, or data is invalid!");
 		}
 		return;
 	}

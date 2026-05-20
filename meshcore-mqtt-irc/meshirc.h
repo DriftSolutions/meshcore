@@ -266,6 +266,7 @@ public:
 	void printLog(const string& str); // the default implementation is puts()
 	void onSend(const string& topic, const string& payload);
 	void onRecv(const string& topic, const char * payload, int payloadlen);
+	void onError(const string& errmsg, const UniValue& payload);
 	void onContact(const string& adv_name, const string& pubkey, int type, int hops, const UniValue& payload);
 	void onContactsComplete(const UniValue& payload);
 	void onAdvertisement(const string& pubkey, const UniValue& payload);

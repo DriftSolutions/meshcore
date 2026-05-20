@@ -226,6 +226,14 @@ Bytes 5+: CRC/other data?
 	uint8 ack_code[4];
 };
 
+struct _PACKET_CONTACT_MSG_RECV_COMMON {
+	uint8  public_key_prefix[6];
+	uint8  path_length;
+	MESHCORE_TEXT_TYPES  text_type;
+	uint32 timestamp;
+	//uint8  signature[4];        // only present if text_type == 2
+};
+
 struct _PACKET_CONTACT_MSG_RECV {
 	/*
 Byte 0: 0x07 (packet type)
@@ -237,11 +245,7 @@ Bytes 13-16: Signature (4 bytes, only if txt_type == 2)
 Bytes 17+: Message Text (UTF-8)
 	*/
 	MESHCORE_RESPONSE_CODES packet_type;         // RESPONSE_CODE_CONTACT_MSG_RECV
-	uint8  public_key_prefix[6];
-	uint8  path_length;
-	MESHCORE_TEXT_TYPES  text_type;
-	uint32 timestamp;
-	uint8  signature[4];        // only present if text_type == 2
+	_PACKET_CONTACT_MSG_RECV_COMMON com;
 	// Bytes 17+: Message Text (UTF-8, variable length)
 };
 
@@ -260,11 +264,7 @@ Bytes 20+: Message Text (UTF-8)
 	MESHCORE_RESPONSE_CODES packet_type;         // RESPONSE_CODE_CONTACT_MSG_RECV_V3
 	int8   snr;                 // multiplied by 4
 	uint8  reserved[2];
-	uint8  public_key_prefix[6];
-	uint8  path_length;
-	MESHCORE_TEXT_TYPES  text_type;
-	uint32 timestamp;
-	uint8  signature[4];        // only present if text_type == 2
+	_PACKET_CONTACT_MSG_RECV_COMMON com;
 	// Bytes 20+: Message Text (UTF-8, variable length)
 };
 

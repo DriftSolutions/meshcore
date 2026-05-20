@@ -9,8 +9,8 @@ void queue_packet_app_start() {
 	auto pack = make_shared<MeshCoreCommand>();
 	_PACKET_APP_START p;
 	pack->data.assign((char*)&p, sizeof(p));
-	//pack->data.append("meshcore-companion-mqtt");
-	pack->data.append("mccli");
+	pack->data.append("meshcore-companion-mqtt");
+	//pack->data.append("mccli");
 	pack->expected_responses = { RESPONSE_CODE_SELF_INFO };
 	//pack->is_critical_command = true;
 	outgoing_commands.push_back(pack);
@@ -115,9 +115,9 @@ void MeshCoreCommandDirectMessage::onTimeOut() {
 		pack->data[2] = pack->attempt;
 		pack->time_limit = GetTickCount64() + 5000;
 		outgoing_commands.push_front(pack);
-		printf("[meshcore] Retrying direct message, retry number %u ...\n", pack->attempt);
+		printf("Retrying direct message, retry number %u ...\n", pack->attempt);
 	} else {
-		printf("[meshcore] Giving up on direct message, retry limit hit...\n");
+		mqtt_error("Giving up on direct message, retry limit hit...");
 	}
 }
 
@@ -129,13 +129,13 @@ void MeshCoreCommandStdRetry::onTimeOut() {
 		outgoing_commands.push_front(pack);
 		printf("[meshcore] Retrying command %s: retry number %u ...\n", GetMeshCoreCommandString(getType()).c_str(), pack->attempt);
 	} else {
-		printf("[meshcore] Giving up on command %s, retry limit hit...\n", GetMeshCoreCommandString(getType()).c_str());
+		mqtt_error("Giving up on command %s, retry limit hit...", GetMeshCoreCommandString(getType()).c_str());
 	}
 }
 
 void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const uint8* data, size_t data_length) {
 	if (data_length > MESHCORE_MAX_CHAN_DATAGRAM_LENGTH) {
-		printf("queue_packet_channel_datagram(): datagram too big!\n");
+		mqtt_error("queue_packet_channel_datagram(): datagram too big!");
 		return;
 	}
 
@@ -164,11 +164,11 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	static const uint8 zero_prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2] = { 0 };
 	uint8 prefix[MESHCORE_PUBKEY_PREFIX_LEN / 2];
 	if (!is_valid_destination(pubkey_or_prefix)) {
-		printf("queue_packet_send_direct_msg(): Invalid destination: %s\n", pubkey_or_prefix.c_str());
+		mqtt_error("queue_packet_send_direct_msg(): Invalid destination: %s", pubkey_or_prefix.c_str());
 		return;
 	}
 	if (!hex2bin(pubkey_or_prefix.c_str(), MESHCORE_PUBKEY_PREFIX_LEN, prefix, sizeof(prefix)) || !memcmp(prefix, zero_prefix, sizeof(prefix))) {
-		printf("queue_packet_send_direct_msg(): Error running hex2bin on %s !\n", pubkey_or_prefix.c_str());
+		mqtt_error("queue_packet_send_direct_msg(): Error running hex2bin on %s !", pubkey_or_prefix.c_str());
 		return;
 	}
 
@@ -181,7 +181,12 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	buffer_append_int<uint32>(&buf, Get_ULE32((uint32)time(NULL)));
 	buffer_append(&buf, (const char*)prefix, sizeof(prefix));
 
-	size_t len = min(str.length(), (size_t)160);
+	size_t len = min(str.length(), (size_t)MESHCORE_MAX_DIRECT_TEXT_LENGTH);
+	if (str.length() > MESHCORE_MAX_DIRECT_TEXT_LENGTH) {
+		printf("Warning: direct message is over MESHCORE_MAX_DIRECT_TEXT_LENGTH, truncating...\n");
+		printf(" Original: %s\n", str.c_str());
+		printf("Truncated: %s\n", str.substr(0, len).c_str());
+	}
 	buffer_append(&buf, str.c_str(), len);
 
 	pack->data = buffer_as_string(&buf);
@@ -190,6 +195,51 @@ void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& 
 	pack->expected_responses = { RESPONSE_CODE_MSG_SENT };
 	pack->is_message = true;
 	outgoing_commands.push_back(pack);
+}
+
+/**
+* Escape nulls to safely send binary data as a string.
+* Why this over Base64 or something else you might ask? Base64/hex/etc. all have guaranteed overhead, in the likely use cases of what people will be sending over MeshCore byte values of 0 and 1 will so rare as to result in negligible overhead.
+* Take the 2 most common things people are likely to send:
+*	UTF-8/ASCII strings: 0x00 is never in the middle of data, with just one optional one at the end. 0x01 is Start of Heading which is not in modern use and also isn't used in UTF-8 multibyte encodings. So zero overhead in these cases except the optional terminating null.
+*	Encrypted Data: In properly encrypted data, the odds of a 0x00 or 0x01 appearing in a full-length encrypted message is less than 1 per message.
+*/
+string escape_nulls(const uint8* data, size_t data_length) {
+	string ret;
+	const uint8* p = data;
+	for (size_t i = 0; i < data_length; i++, p++) {
+		if (*p == 0x00) {
+			ret += "\x01\x01";
+		} else if (*p == 0x01) {
+			ret += "\x01\x02";
+		} else {
+			ret += *p;
+		}
+	}
+	return ret;
+}
+
+void unescape_nulls(uint8* data, size_t& data_length) {
+	string ret;
+	uint8* p = data;
+	for (size_t i = 0; i < data_length; p++, i++) {
+		if (*p == 0x01) {
+			size_t left = data_length - i - 1;
+			memmove(p, p + 1, left);
+			*p = *p - 1;
+			data_length--;
+		}
+	}
+}
+
+void queue_packet_send_direct_datagram(const string& pubkey_or_prefix, const uint8* data, size_t data_length) {
+	string str = escape_nulls(data, data_length);
+	if (str.length() > MESHCORE_MAX_DIRECT_TEXT_LENGTH) {
+		mqtt_error("queue_packet_send_direct_datagram(): Payload is too big!");
+		return;
+	}
+
+	queue_packet_send_direct_msg(pubkey_or_prefix, str, 0, TXT_TYPE_CLI_DATA);
 }
 
 /*
@@ -229,11 +279,11 @@ void queue_packet_login(const string& pubkey_or_prefix, const string& pass) {
 	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
 	uint8 key[MESHCORE_PUBKEY_LEN / 2];
 	if (!is_valid_pubkey(pubkey)) {
-		printf("queue_packet_login(): Invalid pubkey: %s\n", pubkey.c_str());
+		mqtt_error("queue_packet_login(): Invalid pubkey: %s", pubkey.c_str());
 		return;
 	}
 	if (!hex2bin(pubkey.c_str(), MESHCORE_PUBKEY_LEN, key, sizeof(key)) || !memcmp(key, zero_key, sizeof(key))) {
-		printf("queue_packet_login(): Error running hex2bin on %s !\n", pubkey.c_str());
+		mqtt_error("queue_packet_login(): Error running hex2bin on %s !", pubkey.c_str());
 		return;
 	}
 
@@ -256,11 +306,11 @@ void queue_packet_send_status_request(const string& pubkey_or_prefix) {
 	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
 	uint8 key[MESHCORE_PUBKEY_LEN / 2];
 	if (!is_valid_pubkey(pubkey)) {
-		printf("queue_packet_send_status_request(): Invalid pubkey: %s\n", pubkey.c_str());
+		mqtt_error("queue_packet_send_status_request(): Invalid pubkey: %s", pubkey.c_str());
 		return;
 	}
 	if (!hex2bin(pubkey.c_str(), MESHCORE_PUBKEY_LEN, key, sizeof(key)) || !memcmp(key, zero_key, sizeof(key))) {
-		printf("queue_packet_send_status_request(): Error running hex2bin on %s !\n", pubkey.c_str());
+		mqtt_error("queue_packet_send_status_request(): Error running hex2bin on %s !", pubkey.c_str());
 		return;
 	}
 
@@ -279,14 +329,14 @@ void queue_packet_send_status_request(const string& pubkey_or_prefix) {
 
 void queue_packet_set_channel_config(uint8 channel_idx, const string& channelName, const string& secret_key) {
 	if (channel_idx > MESHCORE_HIGHEST_CHANNEL || channelName.empty()) {
-		printf("Error in queue_packet_set_channel_config(): invalid channel_index or empty channel_name!\n");
+		mqtt_error("Error in queue_packet_set_channel_config(): invalid channel_index or empty channel_name!");
 		return;
 	}
 
 	char name[MESHCORE_MAX_CHAN_LEN + 1] = { 0 };
 	sstrcpy(name, channelName.c_str());
 	if (name[0] == 0) {
-		printf("Error in queue_packet_set_channel_config(): empty channel_name!\n");
+		mqtt_error("Error in queue_packet_set_channel_config(): empty channel_name!");
 		return;
 	}
 
@@ -300,7 +350,7 @@ void queue_packet_set_channel_config(uint8 channel_idx, const string& channelNam
 			}
 			key = bin2hex((const uint8*)key.c_str(), key.length());
 		} else {
-			printf("Error in queue_packet_set_channel_config(): required secret_key is empty!\n");
+			mqtt_error("Error in queue_packet_set_channel_config(): required secret_key is empty!");
 			return;
 		}
 	} else {
@@ -308,12 +358,12 @@ void queue_packet_set_channel_config(uint8 channel_idx, const string& channelNam
 	}
 
 	if (key.length() != MESHCORE_CHAN_SECRET_LEN || strspn(key.c_str(), "0123456789abcdef") != key.length()) {
-		printf("Error in queue_packet_set_channel_config(): secret_key is incorrect length or not hex!\n");
+		mqtt_error("Error in queue_packet_set_channel_config(): secret_key is incorrect length or not hex!");
 		return;
 	}
 	uint8 keybin[MESHCORE_CHAN_SECRET_LEN / 2];
 	if (!hex2bin(key.c_str(), key.length(), keybin, sizeof(keybin))) {
-		printf("Error in queue_packet_set_channel_config(): error decoding secret_key from hex to binary!\n");
+		mqtt_error("Error in queue_packet_set_channel_config(): error decoding secret_key from hex to binary!");
 		return;
 	}
 
@@ -335,7 +385,7 @@ void queue_packet_set_channel_config(uint8 channel_idx, const string& channelNam
 
 void queue_packet_erase_channel(uint8 channel_idx) {
 	if (channel_idx > MESHCORE_HIGHEST_CHANNEL) {
-		printf("Error in queue_packet_erase_channel(): invalid channel_index!\n");
+		mqtt_error("Error in queue_packet_erase_channel(): invalid channel_index!");
 		return;
 	}
 
@@ -359,23 +409,23 @@ void queue_packet_erase_channel(uint8 channel_idx) {
 
 void queue_swap_channels(uint8 channel_idx_1, uint8 channel_idx_2) {
 	if (channel_idx_1 > MESHCORE_HIGHEST_CHANNEL || channel_idx_2 > MESHCORE_HIGHEST_CHANNEL) {
-		printf("Error in queue_swap_channels(): invalid channel_index!\n");
+		mqtt_error("Error in queue_swap_channels(): invalid channel_index!");
 		return;
 	}
 
 	if (channel_idx_1 == channel_idx_2) {
-		printf("Error in queue_swap_channels(): no point in swapping a channel with itself!\n");
+		mqtt_error("Error in queue_swap_channels(): no point in swapping a channel with itself!");
 		return;
 	}
 
 	shared_ptr<MeshCoreChannel> c1, c2;
 	if (!get_channel(channel_idx_1, c1)) {
-		printf("Error in queue_swap_channels(): I don't have info for channel index %u!\n", channel_idx_1);
+		mqtt_error("Error in queue_swap_channels(): I don't have info for channel index %u!", channel_idx_1);
 		return;
 	}
 
 	if (!get_channel(channel_idx_2, c2)) {
-		printf("Error in queue_swap_channels(): I don't have info for channel index %u!\n", channel_idx_2);
+		mqtt_error("Error in queue_swap_channels(): I don't have info for channel index %u!", channel_idx_2);
 		return;
 	}
 

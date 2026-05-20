@@ -190,7 +190,7 @@ void handle_incoming_packet_push_notifications(uint8* pack, uint16 packlen) {
 			size_t len = packlen - sizeof(_PACKET_STATUS_RESPONSE);
 			obj.pushKV("status_data", bin2hex(data, len));
 
-			if (config.meshcore.log_to_console) {
+			if (!config.meshcore.log_to_console) {
 				printf("Status data:\n");
 				PrintData(stdout, data, len);
 			}
@@ -206,6 +206,43 @@ void handle_incoming_packet_push_notifications(uint8* pack, uint16 packlen) {
 	}
 
 	int x = 1;
+}
+
+void handleDirectMessage(_PACKET_CONTACT_MSG_RECV_COMMON * msg, size_t msglen) {
+	UniValue obj(UniValue::VOBJ);
+	string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
+	shared_ptr<MeshCoreContact> u;
+	if (get_contact_by_pubkey_prefix(pubkey_prefix, u)) {
+		obj.pushKV("public_key", u->pubkey);
+	}
+	obj.pushKV("public_key_prefix", pubkey_prefix);
+	obj.pushKV("path_length", msg->path_length);
+	obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
+
+	if (msg->text_type != TXT_TYPE_CLI_DATA) {
+		obj.pushKV("txt_type", (uint8)msg->text_type);
+		char* text = (char*)msg + sizeof(_PACKET_CONTACT_MSG_RECV_COMMON);
+		size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV_COMMON);
+		if (msg->text_type == 2) { // signed text			
+			text += 4;
+			header_len += 4;
+		}
+		obj.pushKV("message", trim_nulls(text, msglen - header_len));
+		mqtt_send(mprintf("%s/direct/message/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
+	} else {
+		uint8* raw_data = (uint8*)msg + sizeof(_PACKET_CONTACT_MSG_RECV_COMMON);
+		size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV_COMMON);
+		size_t datalen = msglen - header_len;
+
+		uint8* renulled_raw_data = (uint8 *)malloc(datalen);
+		memcpy(renulled_raw_data, raw_data, datalen);
+		size_t renulled_datalen = datalen;
+		unescape_nulls(renulled_raw_data, renulled_datalen);
+
+		obj.pushKV("data", bin2hex(raw_data, datalen));
+		obj.pushKV("unescaped_data", bin2hex(renulled_raw_data, renulled_datalen));
+		mqtt_send(mprintf("%s/direct/data/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
+	}
 }
 
 void handle_incoming_packet(uint8* pack, uint16 packlen) {
@@ -233,10 +270,7 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		if (is_expected) {
 			mesh_log("Received response %s for current command %s\n", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
 		} else {
-			mesh_log("Received unexpected %s for current command %s\n", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
-			if (!config.meshcore.log_to_console) {
-				printf("Received unexpected %s for current command %s\n", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
-			}
+			mqtt_error("Received unexpected %s for current command %s", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
 			current_command.reset();
 		}
 	}
@@ -255,11 +289,9 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		uint8 code = 0;
 		if (packlen >= 2) {
 			code = pack[1];
-			printf("Received error reply with error %s (0x%02X) to last command!\n", GetMeshCoreErrorString(code), code);
-			mesh_log("Received error reply with error %s (0x%02X) to last command!\n", GetMeshCoreErrorString(code), code);
+			mqtt_error("Received error reply with error %s (0x%02X) to last command!", GetMeshCoreErrorString(code), code);
 		} else {
-			printf("Received error reply to last command!\n");
-			mesh_log("Received error reply to last command!\n");
+			mqtt_error("Received error reply to last command!");
 		}
 
 		if (current_command) {
@@ -343,7 +375,6 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 	}
 
 	if (packet_type == RESPONSE_CODE_CONTACT_START) {
-		printf("Receiving contacts list...\n");
 		if (packlen >= 5) {
 			uint32 count = Get_ULE32(*(uint32*)(pack + 1));
 			printf("Receiving contacts list... (%u contacts)\n", count);
@@ -364,7 +395,7 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		uint32 used_storage = Get_ULE32(bs->used_storage);
 		uint32 total_storage = Get_ULE32(bs->total_storage);
 
-		printf("Battery: %.02fv. Storage: %u of %u kB used.\n", volts, used_storage, total_storage);
+		printf("[meshcore] Battery: %.02fv. Storage: %u of %u kB used.\n", volts, used_storage, total_storage);
 
 		UniValue obj(UniValue::VOBJ);
 		obj.pushKV("millivolts", millivolts);
@@ -375,33 +406,13 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV && packlen >= sizeof(RESPONSE_CODE_CONTACT_MSG_RECV)) {
+	if (packet_type == RESPONSE_CODE_CONTACT_MSG_RECV && packlen >= sizeof(_PACKET_CONTACT_MSG_RECV)) {
 		if (is_duplicate(pack, packlen)) {
 			return;
 		}
 
 		_PACKET_CONTACT_MSG_RECV* msg = (_PACKET_CONTACT_MSG_RECV*)pack;
-		UniValue obj(UniValue::VOBJ);
-		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
-		shared_ptr<MeshCoreContact> u;
-		if (get_contact_by_pubkey_prefix(pubkey_prefix, u)) {
-			obj.pushKV("public_key", u->pubkey);
-		}
-		obj.pushKV("public_key_prefix", pubkey_prefix);
-		obj.pushKV("txt_type", (uint8)msg->text_type);
-		obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
-		obj.pushKV("path_length", msg->path_length);
-		char* text;
-		size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV);
-		if (msg->text_type == 2) { // signed text			
-			text = (char*)pack + sizeof(_PACKET_CONTACT_MSG_RECV);
-		} else {
-			text = (char*)&msg->signature[0];
-			header_len -= 4;
-		}
-		obj.pushKV("message", trim_nulls(text, packlen - header_len));
-		//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
-		mqtt_send(mprintf("%s/direct/message/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
+		handleDirectMessage(&msg->com, packlen - ((uint8 *)&msg->com - pack));
 		return;
 	}
 
@@ -411,6 +422,8 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		}
 
 		_PACKET_CONTACT_MSG_RECV_V3* msg = (_PACKET_CONTACT_MSG_RECV_V3*)pack;
+		handleDirectMessage(&msg->com, packlen - ((uint8*)&msg->com - pack));
+		/*
 		UniValue obj(UniValue::VOBJ);
 		string pubkey_prefix = bin2hex(msg->public_key_prefix, sizeof(msg->public_key_prefix));
 		shared_ptr<MeshCoreContact> u;
@@ -437,16 +450,18 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		} else {
 			obj.pushKV("timestamp", (int64)Get_ULE32(msg->timestamp));
 			obj.pushKV("path_length", msg->path_length);
-			uint8* text = (uint8*)&msg->signature[0];
+			uint8* raw_data = (uint8*)&msg->signature[0];
 			size_t header_len = sizeof(_PACKET_CONTACT_MSG_RECV_V3) - 4;
-			obj.pushKV("data", bin2hex(text, packlen - header_len));
+			size_t datalen = packlen - header_len;
+			obj.pushKV("data", bin2hex(raw_data, datalen));
 			//obj.pushKV("version", trim_nulls(di->version, sizeof(di->version)));
 			mqtt_send(mprintf("%s/direct/data/%s", config.mqtt.topic_prefix.c_str(), pubkey_prefix.c_str()), obj, false);
 		}
+		*/
 		return;
 	}
 
-	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV && packlen >= sizeof(RESPONSE_CODE_CHANNEL_MSG_RECV)) {
+	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV && packlen >= sizeof(_PACKET_CHANNEL_MSG_RECV)) {
 		if (is_duplicate(pack, packlen)) {
 			return;
 		}
@@ -473,7 +488,7 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 		return;
 	}
 
-	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV_V3 && packlen >= sizeof(RESPONSE_CODE_CHANNEL_MSG_RECV_V3)) {
+	if (packet_type == RESPONSE_CODE_CHANNEL_MSG_RECV_V3 && packlen >= sizeof(_PACKET_CHANNEL_MSG_RECV_V3)) {
 		if (is_duplicate(pack, packlen)) {
 			return;
 		}

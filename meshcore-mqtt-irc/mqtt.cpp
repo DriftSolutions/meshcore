@@ -107,6 +107,20 @@ void MQTT_IRC_Client::onChanInfoComplete() {
 	}
 }
 
+void MQTT_IRC_Client::onError(const string& errmsg, const UniValue& payload) {
+	printf("[mqtt] Received error message: %s\n", errmsg.c_str());
+
+	if (config.self_user) {
+		vector<string> parms = {
+			":" + config.irc.server_hostname,
+			"NOTICE",
+			config.self_user->irc_nick,
+			mprintf("Received error message from MQTT: %s\n", errmsg.c_str())
+		};
+		SendLineToAllAuthenticatedClients(parms);
+	}
+}
+
 void split_incoming_into_lines(const string& line, vector<string>& lines) {
 	lines.clear();
 	char* tmp = strdup(line.c_str());

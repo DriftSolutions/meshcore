@@ -23,7 +23,9 @@
 #define MESHCORE_CHAN_SECRET_LEN 32
 #define MESHCORE_MAX_PACKET_PAYLOAD  184
 #define MESHCORE_MAX_CHAN_DATAGRAM_LENGTH 163
-#define MESHCORE_MAX_DIRECT_DATAGRAM_LENGTH (MESHCORE_MAX_PACKET_PAYLOAD - 16)
+#define MESHCORE_MAX_DIRECT_TEXT_LENGTH (MESHCORE_MAX_PACKET_PAYLOAD - 16)
+#define MESHCORE_MAX_DIRECT_DATAGRAM_LENGTH MESHCORE_MAX_DIRECT_TEXT_LENGTH
+//(MESHCORE_MAX_PACKET_PAYLOAD - 16)
 
 #define COMPANION_INCOMING_FRAME_START 0x3E
 #define COMPANION_OUTGOING_FRAME_START 0x3C
@@ -293,6 +295,7 @@ bool mqtt_send(const string& topic, const string& s, bool retain);
 bool mqtt_send(const string& topic, const UniValue& obj, bool retain);
 bool mqtt_send_self_info();
 bool mqtt_send_device_info();
+bool mqtt_error(const char* fmt, ...); // prints to console and sends out to MQTT clients
 
 string GetMeshCoreCommandString(MESHCORE_COMMAND_CODES cmd);
 string GetMeshCoreResponseString(MESHCORE_RESPONSE_CODES resp);
@@ -328,7 +331,9 @@ void queue_packet_set_channel_config(uint8 channel_idx, const string& channelNam
 void queue_packet_erase_channel(uint8 channel_idx);
 void queue_swap_channels(uint8 channel_idx_1, uint8 channel_idx_2);
 void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const uint8 * data, size_t data_length);
-void queue_packet_send_direct_datagram(const string& pubkey, const uint8* data, size_t data_length);
+void queue_packet_send_direct_datagram(const string& pubkey_or_prefix, const uint8* data, size_t data_length);
+string escape_nulls(const uint8* data, size_t data_length);
+void unescape_nulls(uint8* data, size_t& data_length);
 
 void handle_incoming_packets();
 void remove_outgoing_message(uint32 tag);

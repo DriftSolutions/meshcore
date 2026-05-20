@@ -80,6 +80,11 @@ static void on_mqtt_message(struct mosquitto* mosq, void* userdata, const struct
 			printf("[mqtt] Failed to parse JSON on for command %s: %s\n", topic, raw.c_str());
 			return;
 		}
+		if (!parms.isObject()) {
+			string raw((const char*)msg->payload, msg->payloadlen);
+			printf("[mqtt] JSON for command %s is not an object: %s\n", topic, raw.c_str());
+			return;
+		}
 
 		shared_ptr<MQTT_Command> cmd = make_shared<MQTT_Command>();
 		cmd->cmd = topic + prefix_commands.length();
@@ -173,6 +178,7 @@ bool mqtt_send(const string& topic, const string& s, bool retain) {
 
 bool mqtt_send(const string& topic, const UniValue& obj, bool retain) {
 	assert(obj.isObject());
+	
 	return mqtt_send(topic, obj.write(), retain);
 }
 
@@ -192,4 +198,21 @@ bool mqtt_send_device_info() {
 		queue_packet_device_query();
 	}
 	return false;
+}
+
+bool mqtt_error(const char* fmt, ...) {
+	UniValue obj(UniValue::VOBJ);
+
+	va_list va;
+	va_start(va, fmt);
+	char* tmp = dsl_vmprintf(fmt, va);
+	mqtt_log("%s\n", tmp);
+	if (!config.mqtt.log_to_console) {
+		printf("%s\n", tmp);
+	}
+	obj.pushKV("error", tmp);
+	dsl_free(tmp);
+	va_end(va);
+
+	return mqtt_send(config.mqtt.topic_prefix + "/error", obj, false);
 }

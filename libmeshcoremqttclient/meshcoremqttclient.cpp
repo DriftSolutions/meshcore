@@ -263,11 +263,22 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 	static const string prefix_new_contact = topic_prefix + "/new_contact";
 	static const string prefix_my_own_chan_messages = topic_prefix + "/command/send_chan_msg";
 	static const string prefix_my_own_dm = topic_prefix + "/command/send_direct_msg";
+	static const string prefix_error = topic_prefix + "/error";
 
 	UniValue payload;
 	if (!payload.read((const char*)raw_payload, payloadlen)) {
 		//string raw((const char*)msg->payload, msg->payloadlen);
 		//printf("[mqtt] Failed to parse JSON on topic %s: %s\n", topic, raw.c_str());
+		return;
+	}
+
+	if (topic == prefix_error) {
+		string errmsg = payload.exists("error") && payload["error"].isStr() ? payload["error"].get_str() : "";
+		if (errmsg.empty()) {
+			errmsg = "Unknown Error";
+		}
+		printf("Received error from MQTT server: %s\n", errmsg.c_str());
+		onError(errmsg, payload);
 		return;
 	}
 
@@ -411,6 +422,7 @@ void MeshCore_MQTT_Client::cbRecvMQTT(const char * topic, const void * raw_paylo
 		uint8* raw = (uint8*)malloc(data_len);
 		if (hex2bin(data.c_str(), data.length(), raw, data_len)) {
 			int hops = payload.exists("path_len") && payload["path_len"].isNum() ? payload["path_len"].get_int() : UNKNOWN_HOPS;
+
 			onDirectData(from, raw, data_len, hops, payload);
 		} else {
 			Log("Error converting data from hex to binary: %s\n", data.c_str());
