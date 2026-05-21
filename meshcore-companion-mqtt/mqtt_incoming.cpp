@@ -42,6 +42,62 @@ void handle_incoming_commands() {
 		}
 		return;		
 	}
+
+	if (cmd->cmd == "add_or_update_contact") {
+		string pubkey = get_uv_string(cmd->parms, "public_key");
+		if (pubkey.empty()) {
+			mqtt_error("Error in update_contact: no public_key specified!");
+			return;
+		}
+
+		_PACKET_CONTACT_BASE newc;
+
+		shared_ptr<MeshCoreContact> u;
+		if (get_contact_by_pubkey(pubkey, u)) {
+			newc = u->raw;
+		} else {
+			if (!is_valid_pubkey(pubkey) || !hex2bin(pubkey.c_str(), pubkey.length(), newc.public_key, sizeof(newc.public_key))) {
+				mqtt_error("Error in update_contact: Invalid public_key specified!");
+				return;
+			}
+			if (!cmd->parms.exists("type")) {
+				mqtt_error("Error in update_contact: 'type' must be specified when creating a new contact!");
+				return;
+			}
+		}
+
+		sstrcpy(newc.adv_name, get_uv_string(cmd->parms, "name", u ? u->name : "").c_str());
+		newc.type = (CONTACT_TYPE)get_uv_int(cmd->parms, "type", newc.type);
+		if (newc.type >= NUM_ADV_TYPES) {
+			mqtt_error("Error in update_contact: Invalid contact type!");
+			return;
+		}
+		newc.flags = (uint8)get_uv_int(cmd->parms, "flags", newc.flags);
+		double oldloc = u ? u->latitude : 0.0f;
+		newc.adv_lat = Get_SLE32(int32(get_uv_float(cmd->parms, "latitude", oldloc) * 1000000.0f));
+		oldloc = u ? u->longitude : 0.0f;
+		newc.adv_lon = Get_SLE32(int32(get_uv_float(cmd->parms, "longitude", oldloc) * 1000000.0f));
+		if (cmd->parms.exists("favorite") && cmd->parms["favorite"].isBool()) {
+			if (cmd->parms["favorite"].getBool()) {
+				newc.flags |= MESHCORE_CONTACT_FLAG_FAVORITE;
+			} else {
+				newc.flags &= ~MESHCORE_CONTACT_FLAG_FAVORITE;
+			}
+		}
+
+		if (newc.adv_name[0] == 0) {
+			mqtt_error("Error in update_contact: 'name' cannot be empty!");
+			return;
+		}
+
+		if (u.get() == NULL) {
+			newc.last_advert = Get_ULE32((uint32)time(NULL));
+		}
+
+		queue_packet_add_or_update_contact(newc);
+		update_contacts(false);
+		return;
+	}
 	
 	if (cmd->cmd == "get_channels") {
 		bool force = (cmd->parms.exists("force_refresh") && cmd->parms["force_refresh"].isBool() && cmd->parms["force_refresh"].getBool());
@@ -111,6 +167,22 @@ void handle_incoming_commands() {
 				}
 			} else {
 				mqtt_error("Error in send_status_request: destination is empty or not set!");
+			}
+		}
+		return;
+	}
+
+	if (cmd->cmd == "reset_path") {
+		if (cmd->parms.exists("destination") && cmd->parms["destination"].isStr()) {
+			string destination = cmd->parms["destination"].get_str();
+			if (!destination.empty()) {
+				if (is_valid_destination(destination)) {
+					queue_packet_send_reset_path(destination);
+				} else {
+					mqtt_error("Error in reset_path: invalid destination, must be a pubkey or pubkey prefix!");
+				}
+			} else {
+				mqtt_error("Error in reset_path: destination is empty or not set!");
 			}
 		}
 		return;

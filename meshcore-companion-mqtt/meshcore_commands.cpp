@@ -92,6 +92,31 @@ void update_contacts(bool force_get_all) {
 	}
 }
 
+void queue_packet_add_or_update_contact(const _PACKET_CONTACT_BASE& newc) {
+	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
+	if (!memcmp(newc.public_key, zero_key, sizeof(newc.public_key))) {
+		mqtt_error("queue_packet_add_or_update_contact(): Invalid public key (all zeroes)!");
+		return;
+	}
+	if (newc.adv_name[0] == 0) {
+		mqtt_error("queue_packet_add_or_update_contact(): Name cannot be empty!");
+		return;
+	}
+
+	auto pack = make_shared<MeshCoreCommand>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	//buffer_append_int<uint8>(&buf, CMD_ADD_UPDATE_CONTACT);
+	_PACKET_CONTACT_BASE tmp = newc;
+	tmp.packet_type = (MESHCORE_RESPONSE_CODES)CMD_ADD_UPDATE_CONTACT;
+	buffer_append(&buf, (const char*)&tmp, sizeof(_PACKET_CONTACT_BASE));
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+
+	pack->expected_responses = { RESPONSE_CODE_OK };
+	outgoing_commands.push_back(pack);
+}
+
 void queue_packet_send_channel_msg(uint8 channel_idx, const string& str, MESHCORE_TEXT_TYPES txt_type) {
 	auto pack = make_shared<MeshCoreCommand>();
 	DSL_BUFFER buf;
@@ -122,7 +147,7 @@ void MeshCoreCommandDirectMessage::onTimeOut() {
 }
 
 void MeshCoreCommandStdRetry::onTimeOut() {
-	if (attempt < 3) {
+	if (attempt < max_attempts) {
 		auto pack = make_shared<MeshCoreCommandStdRetry>(*this);
 		pack->attempt++;
 		pack->time_limit = GetTickCount64() + 5000;
@@ -142,12 +167,6 @@ void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const ui
 	auto pack = make_shared<MeshCoreCommand>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
-	/*
-	buffer_append_int<uint8>(&buf, CMD_SEND_CHANNEL_DATA);
-	buffer_append_int<uint16>(&buf, Get_ULE16(data_type));
-	buffer_append_int<uint8>(&buf, channel_idx);
-	buffer_append(&buf, (const char *)data, data_length);
-	*/
 	buffer_append_int<uint8>(&buf, CMD_SEND_CHANNEL_DATA);
 	buffer_append_int<uint8>(&buf, channel_idx);
 	buffer_append_int<uint8>(&buf, 0xFF); // flood
@@ -317,13 +336,40 @@ void queue_packet_send_status_request(const string& pubkey_or_prefix) {
 	auto pack = make_shared<MeshCoreCommandStatusRequest>();
 	DSL_BUFFER buf;
 	buffer_init(&buf);
-	buffer_append_int<uint8>(&buf, 0x1B);
+	buffer_append_int<uint8>(&buf, CMD_SEND_STATUS_REQ);
 	buffer_append(&buf, (const char*)key, sizeof(key));
 	pack->data = buffer_as_string(&buf);
 	buffer_free(&buf);
 
 	sstrcpy(pack->pubkey_prefix, pubkey.c_str());
 	pack->expected_responses = { RESPONSE_CODE_MSG_SENT };
+	outgoing_commands.push_back(pack);
+}
+
+void queue_packet_send_reset_path(const string& pubkey_or_prefix) {
+	string pubkey = get_pubkey_from_pubkey_or_prefix(pubkey_or_prefix);
+
+	static const uint8 zero_key[MESHCORE_PUBKEY_LEN / 2] = { 0 };
+	uint8 key[MESHCORE_PUBKEY_LEN / 2];
+	if (!is_valid_pubkey(pubkey)) {
+		mqtt_error("queue_packet_send_reset_path(): Invalid pubkey: %s", pubkey.c_str());
+		return;
+	}
+	if (!hex2bin(pubkey.c_str(), MESHCORE_PUBKEY_LEN, key, sizeof(key)) || !memcmp(key, zero_key, sizeof(key))) {
+		mqtt_error("queue_packet_send_reset_path(): Error running hex2bin on %s !", pubkey.c_str());
+		return;
+	}
+
+	auto pack = make_shared<MeshCoreCommandStatusRequest>();
+	DSL_BUFFER buf;
+	buffer_init(&buf);
+	buffer_append_int<uint8>(&buf, CMD_RESET_PATH);
+	buffer_append(&buf, (const char*)key, sizeof(key));
+	pack->data = buffer_as_string(&buf);
+	buffer_free(&buf);
+
+	sstrcpy(pack->pubkey_prefix, pubkey.c_str());
+	pack->expected_responses = { RESPONSE_CODE_OK };
 	outgoing_commands.push_back(pack);
 }
 

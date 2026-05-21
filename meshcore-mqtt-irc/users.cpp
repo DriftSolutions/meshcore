@@ -75,7 +75,7 @@ bool get_user_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreU
 	return false;
 }
 
-bool add_user(const string& name, const string& pubkey, const string& pubkey_prefix, int32 hops, shared_ptr<MeshCoreUser>* out) {
+bool add_user(const string& name, const string& pubkey, const string& pubkey_prefix, uint8 flags, int32 hops, shared_ptr<MeshCoreUser>* out) {
 	if (name.empty()) { return false; }
 
 	shared_ptr<MeshCoreUser> u;
@@ -92,6 +92,7 @@ bool add_user(const string& name, const string& pubkey, const string& pubkey_pre
 		if (out != NULL) {
 			*out = u;
 		}
+		u->meshcore_flags = flags;
 		u->updateSeen(hops);
 		if (strcmp(name.c_str(), u->meshcore_nick)) {
 			// if their nickname has changed, update it
@@ -133,6 +134,7 @@ bool add_user(const string& name, const string& pubkey, const string& pubkey_pre
 		u->updateMeshCorePubKeyPrefix(pubkey_prefix);
 	}
 
+	u->meshcore_flags = flags;
 	u->updateSeen(hops);
 
 	users[u.get()] = u;

@@ -94,6 +94,7 @@ public:
 	bool SendDirectMsg(const string& pubkey_or_prefix, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 	bool SendDirectDatagram(const string& pubkey_or_prefix, const string& data);
 	bool SendStatusRequest(const string& pubkey_or_prefix);
+	bool SendResetPath(const string& pubkey_or_prefix);
 
 	/**
 	* If the channel starts with # or the case-sensitive string "Public" and secret_key == "", then we will derive the key automatically. Otherwise will return false.
@@ -122,7 +123,8 @@ public:
 	// End-user callbacks for you to implement:
 
 	virtual void printLog(const string& str); // the default implementation is puts()
-	virtual void onSend(const string& topic, const string& payload) {}
+	virtual void onError(const string& errmsg, const UniValue& payload) {}
+	virtual void onSend(const string& topic, const char* payload, int payloadlen) {}
 	virtual void onRecv(const string& topic, const char* payload, int payloadlen) {}
 	virtual void onContact(const string& adv_name, const string& pubkey, int type, int hops, const UniValue& payload) {}
 	virtual void onContactsComplete(const UniValue& payload) {} // will have normally been preceded by one or more onContact() calls

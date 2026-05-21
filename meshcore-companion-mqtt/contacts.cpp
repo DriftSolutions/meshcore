@@ -44,7 +44,7 @@ void del_contact_by_pubkey(const string& pubkey) {
 	}
 }
 
-void add_or_update_contact(_PACKET_CONTACT* c) {
+void add_or_update_contact(const _PACKET_CONTACT* const c) {
 	UniValue obj(UniValue::VOBJ);
 	string pubkey = bin2hex(c->public_key, sizeof(c->public_key));
 
@@ -71,13 +71,14 @@ void add_or_update_contact(_PACKET_CONTACT* c) {
 	}
 
 	sstrcpy(u->name, name);
-	u->type = c->type;
+	//u->type = c->type;
 	u->latitude = double(Get_SLE32(c->adv_lat)) / 1000000.0f;
 	u->longitude = double(Get_SLE32(c->adv_lon)) / 1000000.0f;
-	u->flags = c->flags;
+	//u->flags = c->flags;
 	u->last_hops = c->out_path_len;
 	u->last_seen = max(u->last_seen, (int64)Get_ULE32(c->lastmod));
 	u->last_seen = max(u->last_seen, (int64)Get_ULE32(c->last_advert));
+	u->raw = *c;
 
 	if (is_new) {
 		if (config.meshcore.maxContactsListSize) {

@@ -53,8 +53,9 @@ void MQTT_IRC_Client::printLog(const string& str) {
 	}
 }
 
-void MQTT_IRC_Client::onSend(const string& topic, const string& payload) {
-	printLog(mprintf("-> %s: %s\n", topic.c_str(), payload.c_str()));
+void MQTT_IRC_Client::onSend(const string& topic, const char* payload, int payloadlen) {
+	string raw((const char*)payload, payloadlen);
+	printLog(mprintf("-> %s: %s\n", topic.c_str(), raw.c_str()));
 }
 void MQTT_IRC_Client::onRecv(const string& topic, const char* payload, int payloadlen) {
 	string raw((const char*)payload, payloadlen);
@@ -62,7 +63,8 @@ void MQTT_IRC_Client::onRecv(const string& topic, const char* payload, int paylo
 }
 
 void MQTT_IRC_Client::onContact(const string& nick, const string& pubkey, int type, int hops, const UniValue& payload) {
-	add_user(nick, pubkey, "", hops);
+	uint8 flags = (payload.exists("flags") && payload["flags"].isNum()) ? (uint8)payload["flags"].get_int() : 0;
+	add_user(nick, pubkey, "", flags, hops);
 }
 
 void MQTT_IRC_Client::onContactsComplete(const UniValue& payload) {
@@ -81,7 +83,7 @@ void MQTT_IRC_Client::onAdvertisement(const string& pubkey, const UniValue& payl
 
 void MQTT_IRC_Client::onSelfInfo(const string& nick, const string& pubkey, const UniValue& payload) {
 	if (config.self_user.get() == NULL || stricmp(config.self_user->meshcore_nick, nick.c_str()) || stricmp(config.self_user->meshcore_pubkey, pubkey.c_str())) {
-		if (add_user(nick, pubkey, "", 0, &config.self_user)) {
+		if (add_user(nick, pubkey, "", 0, 0, &config.self_user)) {
 			printf("[mqtt] My node name: %s -> %s\n", config.self_user->meshcore_nick, config.self_user->irc_nick);
 			printf("[mqtt] My node public key: %s\n", config.self_user->meshcore_pubkey);
 		} else {
@@ -110,15 +112,7 @@ void MQTT_IRC_Client::onChanInfoComplete() {
 void MQTT_IRC_Client::onError(const string& errmsg, const UniValue& payload) {
 	printf("[mqtt] Received error message: %s\n", errmsg.c_str());
 
-	if (config.self_user) {
-		vector<string> parms = {
-			":" + config.irc.server_hostname,
-			"NOTICE",
-			config.self_user->irc_nick,
-			mprintf("Received error message from MQTT: %s\n", errmsg.c_str())
-		};
-		SendLineToAllAuthenticatedClients(parms);
-	}
+	SendServerNoticeToAllAuthenticatedClients(mprintf("Received error message from MQTT: %s\n", errmsg.c_str()));
 }
 
 void split_incoming_into_lines(const string& line, vector<string>& lines) {
@@ -151,7 +145,7 @@ void MQTT_IRC_Client::onChannelMessage(int channel_idx, const string& from, cons
 
 	shared_ptr<MeshCoreUser> user;
 	if (!get_user_by_meshcore_name(from, user)) {
-		add_user(from, "", "", hops);
+		add_user(from, "", "", 0, hops);
 		if (!get_user_by_meshcore_name(from, user)) {
 			printf("[mqtt] Error getting user record for %s", from.c_str());
 			return;

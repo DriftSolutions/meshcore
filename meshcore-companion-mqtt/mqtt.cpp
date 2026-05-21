@@ -77,12 +77,12 @@ static void on_mqtt_message(struct mosquitto* mosq, void* userdata, const struct
 		UniValue parms;
 		if (!parms.read((const char*)msg->payload, msg->payloadlen)) {
 			string raw((const char*)msg->payload, msg->payloadlen);
-			printf("[mqtt] Failed to parse JSON on for command %s: %s\n", topic, raw.c_str());
+			mqtt_log("Failed to parse JSON on %s: %s", topic, raw.c_str());
 			return;
 		}
 		if (!parms.isObject()) {
 			string raw((const char*)msg->payload, msg->payloadlen);
-			printf("[mqtt] JSON for command %s is not an object: %s\n", topic, raw.c_str());
+			mqtt_log("JSON on %s is not an object: %s", topic, raw.c_str());
 			return;
 		}
 

@@ -58,7 +58,7 @@ bool MeshCore_MQTT_Client::Send(const string& topic, const string& s) {
 
 	int rc;
 	if ((rc = mosquitto_publish(mosq, NULL, topic.c_str(), (int)s.size(), s.c_str(), 0, false)) == MOSQ_ERR_SUCCESS) {
-		onSend(topic, s);
+		onSend(topic, s.c_str(), (int)s.length());
 		ret = true;
 	} else {
 #ifndef WIN32
@@ -669,6 +669,19 @@ bool MeshCore_MQTT_Client::SendStatusRequest(const string& pubkey_or_prefix) {
 	}
 
 	string topic = string(topic_prefix) + "/command/send_status_request";
+
+	UniValue payload(UniValue::VOBJ);
+	payload.pushKV("destination", pubkey_or_prefix);
+
+	return Send(topic, payload);
+}
+
+bool MeshCore_MQTT_Client::SendResetPath(const string& pubkey_or_prefix) {
+	if (!connected || pubkey_or_prefix.empty()) {
+		return false;
+	}
+
+	string topic = string(topic_prefix) + "/command/reset_path";
 
 	UniValue payload(UniValue::VOBJ);
 	payload.pushKV("destination", pubkey_or_prefix);

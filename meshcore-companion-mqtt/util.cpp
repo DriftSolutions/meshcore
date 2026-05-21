@@ -148,3 +148,31 @@ string trim_nulls(const string& str) {
 string trim_nulls(const char* str, size_t len) {
 	return trim_nulls(string(str, len));
 }
+
+string get_uv_string(const UniValue& obj, const string& key, const string& sDefault) {
+	if (obj.isObject() && obj.exists(key) && obj[key].isStr()) {
+		return obj[key].get_str();
+	}
+	return sDefault;
+}
+
+int get_uv_int(const UniValue& obj, const string& key, int nDefault) {
+	if (obj.isObject() && obj.exists(key) && obj[key].isNum()) {
+		return obj[key].get_int();
+	}
+	return nDefault;
+}
+
+int64 get_uv_int64(const UniValue& obj, const string& key, int nDefault) {
+	if (obj.isObject() && obj.exists(key) && obj[key].isNum()) {
+		return obj[key].get_int64();
+	}
+	return nDefault;
+}
+
+double get_uv_float(const UniValue& obj, const string& key, double fDefault) {
+	if (obj.isObject() && obj.exists(key) && obj[key].isReal()) {
+		return obj[key].get_real();
+	}
+	return fDefault;
+}

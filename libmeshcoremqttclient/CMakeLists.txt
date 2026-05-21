@@ -2,4 +2,3 @@
 AUX_SOURCE_DIRECTORY(. SRCFILES)
 
 add_library (meshcoremqttclient STATIC ${SRCFILES})
-SET_TARGET_PROPERTIES(meshcoremqttclient PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ../../obj)

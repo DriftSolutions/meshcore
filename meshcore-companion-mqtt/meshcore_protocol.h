@@ -320,10 +320,13 @@ enum CONTACT_TYPE : uint8 {
 	ADV_TYPE_NONE = 0,
 	ADV_TYPE_CHAT = 1,
 	ADV_TYPE_REPEATER = 2,
-	ADV_TYPE_ROOM = 3
+	ADV_TYPE_ROOM = 3,
+	NUM_ADV_TYPES
 };
 
-struct _PACKET_CONTACT {
+#define MESHCORE_CONTACT_FLAG_FAVORITE 0x01
+
+struct _PACKET_CONTACT_BASE {
 	MESHCORE_RESPONSE_CODES packet_type;   // RESPONSE_CODE_CONTACT
 	uint8        public_key[32];
 	CONTACT_TYPE type;          // one of ADV_TYPE_*
@@ -334,6 +337,10 @@ struct _PACKET_CONTACT {
 	uint32       last_advert;
 	int32        adv_lat;       // advertised latitude * 1E6
 	int32        adv_lon;       // advertised longitude * 1E6
+};
+
+struct _PACKET_CONTACT : public _PACKET_CONTACT_BASE {
+	//_PACKET_CONTACT_BASE base;
 	uint32       lastmod;
 };
 

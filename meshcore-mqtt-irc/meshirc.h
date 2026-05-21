@@ -54,6 +54,7 @@ public:
 	const char* const meshcore_nick = _meshcore_nick;
 	const char* const meshcore_pubkey = _meshcore_pubkey;
 	const char* const meshcore_pubkey_prefix = _meshcore_pubkey_prefix;
+	uint8 meshcore_flags = 0;
 
 	const char* const irc_nick = _irc_nick;
 	/**
@@ -257,6 +258,8 @@ extern list<shared_ptr<Client>> clients;
 //extern DB_SQLite * db;
 
 bool SendLineToAllAuthenticatedClients(const vector<string>& parms);
+bool SendServerNoticeToAllAuthenticatedClients(const string& str);
+
 
 class MQTT_IRC_Client : public MeshCore_MQTT_Client {
 public:
@@ -264,7 +267,7 @@ public:
 	}
 
 	void printLog(const string& str); // the default implementation is puts()
-	void onSend(const string& topic, const string& payload);
+	void onSend(const string& topic, const char * payload, int payloadlen);
 	void onRecv(const string& topic, const char * payload, int payloadlen);
 	void onError(const string& errmsg, const UniValue& payload);
 	void onContact(const string& adv_name, const string& pubkey, int type, int hops, const UniValue& payload);
@@ -353,13 +356,15 @@ void add_channel(int channel_idx, const string& meshcore_name, bool is_private);
 bool get_channel_by_meshcore_index(int channel_idx, shared_ptr<MeshCoreChannel>& chan);
 bool get_channel_by_irc_name(const string& channel_name, shared_ptr<MeshCoreChannel>& chan);
 
+#define MESHCORE_CONTACT_FLAG_FAVORITE 0x01
+
 bool get_user_by_meshcore_name(const string& name, shared_ptr<MeshCoreUser>& u);
 bool get_user_by_irc_nick(const string& irc_nick, shared_ptr<MeshCoreUser>& u);
 bool get_user_by_hostmask(const string& hostmask, shared_ptr<MeshCoreUser>& u);
 bool get_user_by_pubkey(const string& pubkey, shared_ptr<MeshCoreUser>& u);
 bool get_user_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreUser>& u);
 
-bool add_user(const string& name, const string& pubkey, const string& pubkey_prefix, int32 hops, shared_ptr<MeshCoreUser> * out = NULL);
+bool add_user(const string& name, const string& pubkey, const string& pubkey_prefix, uint8 flags, int32 hops, shared_ptr<MeshCoreUser> * out = NULL);
 //void remove_user(shared_ptr<MeshCoreUser> u);
 //void remove_old_users();
 

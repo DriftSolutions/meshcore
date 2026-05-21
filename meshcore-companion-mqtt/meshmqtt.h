@@ -98,8 +98,6 @@ private:
 
 	int64 _last_seen = time(NULL);
 public:
-	CONTACT_TYPE type = ADV_TYPE_NONE;
-
 	char name[MESHCORE_MAX_NICK_LEN + 1];
 	const char* const pubkey = _pubkey;
 	const char* const pubkey_prefix = _pubkey_prefix;
@@ -108,9 +106,16 @@ public:
 	int64 last_seen = 0;
 	int last_hops = UNKNOWN_HOPS;
 
-	uint8 flags = 0;
 	double latitude = 0.0f;
 	double longitude = 0.0f;
+
+	_PACKET_CONTACT_BASE raw;
+	const CONTACT_TYPE& type = raw.type;
+	const uint8& flags = raw.flags;
+
+	MeshCoreContact() {
+		memset(&raw, 0, sizeof(raw));
+	}
 
 	void updateMeshCorePubKey(const string& pubkey) {
 		sstrcpy(_pubkey, pubkey.c_str());
@@ -182,6 +187,7 @@ public:
 
 class MeshCoreCommandStdRetry : public MeshCoreCommandAcknowledged {
 public:
+	uint8 max_attempts = 3;
 	virtual void onTimeOut();
 };
 
@@ -192,6 +198,10 @@ public:
 
 class MeshCoreCommandStatusRequest : public MeshCoreCommandStdRetry {
 public:
+	MeshCoreCommandStatusRequest() {
+		max_attempts = 5;
+	}
+
 	char pubkey_prefix[MESHCORE_PUBKEY_PREFIX_LEN + 1] = { 0 };
 };
 
@@ -302,13 +312,18 @@ string GetMeshCoreResponseString(MESHCORE_RESPONSE_CODES resp);
 string trim_nulls(const string& str);
 string trim_nulls(const char* str, size_t len);
 
+string get_uv_string(const UniValue& obj, const string& key, const string& sDefault = "");
+int get_uv_int(const UniValue& obj, const string& key, int nDefault = 0);
+int64 get_uv_int64(const UniValue& obj, const string& key, int nDefault = 0);
+double get_uv_float(const UniValue& obj, const string& key, double fDefault = 0.0f);
+
 void add_or_update_channel(_PACKET_CHANNEL_INFO* ci);
 bool get_channel(int channel_idx, shared_ptr<MeshCoreChannel>& c);
 bool mqtt_send_channels();
 bool mqtt_send_channel(int idx);
 string DeriveChannelKey(const string& channelName);
 
-void add_or_update_contact(_PACKET_CONTACT * c);
+void add_or_update_contact(const _PACKET_CONTACT* const c);
 bool get_contact_by_pubkey(const string& pubkey, shared_ptr<MeshCoreContact>& u);
 bool get_contact_by_pubkey_prefix(const string& pubkey_prefix, shared_ptr<MeshCoreContact>& u);
 string get_pubkey_from_pubkey_or_prefix(const string& pubkey_or_prefix);
@@ -326,12 +341,14 @@ void queue_packet_get_channel_info(uint8 index);
 void queue_packets_get_channels();
 void queue_packet_send_channel_msg(uint8 channel_idx, const string& str, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
 void queue_packet_send_direct_msg(const string& pubkey_or_prefix, const string& str, uint8 attempt, MESHCORE_TEXT_TYPES txt_type = TXT_TYPE_PLAIN);
-void queue_packet_send_status_request(const string& pubkey);
+void queue_packet_send_status_request(const string& pubkey_or_prefix);
+void queue_packet_send_reset_path(const string& pubkey_or_prefix);
 void queue_packet_set_channel_config(uint8 channel_idx, const string& channelName, const string& secret_key);
 void queue_packet_erase_channel(uint8 channel_idx);
 void queue_swap_channels(uint8 channel_idx_1, uint8 channel_idx_2);
 void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const uint8 * data, size_t data_length);
 void queue_packet_send_direct_datagram(const string& pubkey_or_prefix, const uint8* data, size_t data_length);
+void queue_packet_add_or_update_contact(const _PACKET_CONTACT_BASE& newc);
 string escape_nulls(const uint8* data, size_t data_length);
 void unescape_nulls(uint8* data, size_t& data_length);
 

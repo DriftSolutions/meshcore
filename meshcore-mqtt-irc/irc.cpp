@@ -232,6 +232,19 @@ bool SendLineToAllAuthenticatedClients(const vector<string>& parms) {
 	return had_authenticated;
 }
 
+bool SendServerNoticeToAllAuthenticatedClients(const string& str) {
+	if (config.self_user) {
+		vector<string> parms = {
+			":" + config.irc.server_hostname,
+			"NOTICE",
+			config.self_user->irc_nick,
+			str
+		};
+		return SendLineToAllAuthenticatedClients(parms);
+	}
+	return false;
+}
+
 void Client::SendLine(const vector<string>& parms) {
 	assert(parms.size() != 0);
 	if (parms.size() == 0) {
@@ -411,11 +424,16 @@ bool Client::handleIncomingConnected(char* cmd, char* parms[], int nparms) {
 					parms = {
 						u->irc_nick
 					};
+					string str;
 					if (u->last_hops >= 0) {
-						parms.push_back(mprintf("is %u hops away", u->last_hops));
+						str = mprintf("is %u hops away", u->last_hops);
 					} else {
-						parms.push_back(mprintf("is an unknown number of hops away"));
+						str = mprintf("is an unknown number of hops away");
 					}
+					if ((u->meshcore_flags & MESHCORE_CONTACT_FLAG_FAVORITE) != 0) {
+						str += " and on your favorites list";
+					}
+					parms.push_back(str);
 					SendServerReply(RPL_WHOISOPERATOR, parms);
 
 					parms = {
@@ -631,6 +649,54 @@ bool Client::handleIncomingConnected(char* cmd, char* parms[], int nparms) {
 			}
 			if (!str.empty()) {
 				SendServerReply(RPL_USERHOST, { str });
+			}
+		} else {
+			sendErrorNeedMoreParams(cmd);
+		}
+		return true;
+	}
+
+	if (!stricmp(cmd, "MCFAV") || !stricmp(cmd, "MCUNFAV")) {
+		bool fav = (stricmp(cmd, "MCFAV") == 0);
+		if (nparms > 0) {
+			vector<string> nicks;
+			shared_ptr<MeshCoreUser> u;
+			for (int i = 0; i < nparms; i++) {
+				if (get_user_by_irc_nick(parms[i], u)) {
+					if (u->meshcore_pubkey[0]) {
+						UniValue obj(UniValue::VOBJ);
+						obj.pushKV("public_key", u->meshcore_pubkey);
+						obj.pushKV("favorite", fav);
+						config.mqtt.client->Send(config.mqtt.topic_prefix + "/command/add_or_update_contact", obj);
+					} else {
+						SendServerReply(ERR_NOSUCHNICK, { parms[i], "No pubkey for this user" });
+					}
+				} else {
+					printf("[irc] Tried to favorite unknown user %s\n", parms[i]);
+					SendServerReply(ERR_NOSUCHNICK, { parms[i], "No such nick" });
+				}
+			}
+		} else {
+			sendErrorNeedMoreParams(cmd);
+		}
+		return true;
+	}
+
+	if (!stricmp(cmd, "MCRESET")) {
+		if (nparms > 0) {
+			vector<string> nicks;
+			shared_ptr<MeshCoreUser> u;
+			for (int i = 0; i < nparms; i++) {
+				if (get_user_by_irc_nick(parms[i], u)) {
+					if (u->meshcore_pubkey[0]) {
+						config.mqtt.client->SendResetPath(u->meshcore_pubkey);
+					} else {
+						SendServerReply(ERR_NOSUCHNICK, { parms[i], "No pubkey for this user" });
+					}
+				} else {
+					printf("[irc] Tried to favorite unknown user %s\n", parms[i]);
+					SendServerReply(ERR_NOSUCHNICK, { parms[i], "No such nick" });
+				}
 			}
 		} else {
 			sendErrorNeedMoreParams(cmd);
