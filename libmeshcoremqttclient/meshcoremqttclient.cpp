@@ -466,7 +466,7 @@ bool MeshCore_MQTT_Client::RequestBatteryAndStorageInfo() {
 	return Send(topic, payload);
 }
 
-void MeshCore_MQTT_Client::Work() {
+void MeshCore_MQTT_Client::Work(int loop_timeout) {
 
 	if (mosq == NULL && time(NULL) >= nextConnectAttempt) {
 		char client_id[64];
@@ -500,7 +500,7 @@ void MeshCore_MQTT_Client::Work() {
 	}
 
 	if (mosq) {
-		int rc = mosquitto_loop(mosq, 0, 1);
+		int rc = mosquitto_loop(mosq, loop_timeout, 1);
 		if (rc != MOSQ_ERR_SUCCESS && rc != MOSQ_ERR_NO_CONN) {
 #ifndef WIN32
 			Log("MQTT loop error: %s — reconnecting in 30s", mosquitto_strerror(rc));

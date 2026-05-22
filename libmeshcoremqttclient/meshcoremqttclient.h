@@ -84,7 +84,7 @@ public:
 
 	bool Connect();
 	void Disconnect();
-	void Work();
+	void Work(int loop_timeout);
 	bool Send(const string& topic, const string& payload);
 	bool Send(const string& topic, const UniValue& payload);
 

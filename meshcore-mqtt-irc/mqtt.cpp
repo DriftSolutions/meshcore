@@ -391,7 +391,7 @@ void mosquitto_loop() {
 	static int64 lastContactsReq = 0;
 	static int64 lastChannelReq = 0;
 
-	config.mqtt.client->Work();
+	config.mqtt.client->Work(0);
 
 	if (config.mqtt.client->connected) {
 		if (time(NULL) - config.lastReceivedSelfInfo >= 3600 && time(NULL) - lastSelfReq >= MQTT_REQUEST_RETRY_TIME) {
