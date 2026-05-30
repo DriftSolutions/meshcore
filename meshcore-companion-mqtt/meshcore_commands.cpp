@@ -48,7 +48,7 @@ void queue_packets_get_channels() {
 
 void queue_packet_get_message() {
 	auto pack = make_shared<MeshCoreCommand>();
-	pack->data.assign(1, '\x0A');
+	pack->data.assign(1, CMD_SYNC_NEXT_MESSAGE);
 	pack->expected_responses = { RESPONSE_CODE_CHANNEL_MSG_RECV, RESPONSE_CODE_CHANNEL_MSG_RECV_V3, RESPONSE_CODE_CONTACT_MSG_RECV, RESPONSE_CODE_CONTACT_MSG_RECV_V3, RESPONSE_CODE_NO_MORE_MSGS };
 	outgoing_commands.push_back(pack);
 }
@@ -140,7 +140,7 @@ void MeshCoreCommandDirectMessage::onTimeOut() {
 		pack->data[2] = pack->attempt;
 		pack->time_limit = GetTickCount64() + 5000;
 		outgoing_commands.push_front(pack);
-		printf("Retrying direct message, retry number %u ...\n", pack->attempt);
+		mqtt_error("Retrying direct message, retry number %u of 3 ...", pack->attempt);
 	} else {
 		mqtt_error("Giving up on direct message, retry limit hit...");
 	}
@@ -152,7 +152,7 @@ void MeshCoreCommandStdRetry::onTimeOut() {
 		pack->attempt++;
 		pack->time_limit = GetTickCount64() + 5000;
 		outgoing_commands.push_front(pack);
-		printf("[meshcore] Retrying command %s: retry number %u ...\n", GetMeshCoreCommandString(getType()).c_str(), pack->attempt);
+		mqtt_error("Retrying command %s: retry number %u of %u ...", GetMeshCoreCommandString(getType()).c_str(), pack->attempt, max_attempts);
 	} else {
 		mqtt_error("Giving up on command %s, retry limit hit...", GetMeshCoreCommandString(getType()).c_str());
 	}

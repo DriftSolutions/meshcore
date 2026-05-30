@@ -151,6 +151,11 @@ void meshcore_work() {
 		static int64 lastContactsUpdateReq = 0;
 
 		// Check for messages if we haven't received a RESPONSE_CODE_NO_MORE_MSGS in the last minute, just in case.
+		if (state.lastNoMoreMessages > 0 && time(NULL) - state.lastNoMoreMessages >= 60 * 5) {
+			mqtt_error("We've gone too long without a RESPONSE_CODE_NO_MORE_MSGS response, resetting connection...");
+			meshcore_close();
+			return;
+		}
 		if (time(NULL) - state.lastNoMoreMessages >= 60 && time(NULL) - lastMessageCheckReq >= 30) {
 			queue_packet_get_message();
 			lastMessageCheckReq = time(NULL);
