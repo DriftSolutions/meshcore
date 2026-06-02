@@ -25,15 +25,15 @@ int64 parse_duration_str(const string& str) {
 	return ret;
 }
 
-bool LoadConfig() {
-	if (access("meshcore-companion-mqtt.conf", 0) != 0) {
-		printf("Warning: No meshcore-companion-mqtt.conf found, using defaults...\n");
+bool LoadConfig(const char * fn) {
+	if (access(fn, 0) != 0) {
+		printf("Warning: No %s found, using defaults...\n", fn);
 		return true;
 	}
 
 	ConfigSection root;
-	if (!root.LoadFromFile("meshcore-companion-mqtt.conf")) {
-		printf("Error parsing meshcore-irc.conf!\n");
+	if (!root.LoadFromFile(fn)) {
+		printf("Error parsing %s!\n", fn);
 		return false;
 	}
 
@@ -139,7 +139,7 @@ int main(int argc, const char* argv[]) {
 	dsl_init();
 	atexit(dsl_cleanup);
 
-	if (!LoadConfig()) {
+	if (!LoadConfig((argc > 1) ? argv[1] : "meshcore-companion-mqtt.conf")) {
 		exit(1);
 	}
 
