@@ -430,7 +430,7 @@ bool Client::handleIncomingConnected(char* cmd, char* parms[], int nparms) {
 					} else {
 						str = mprintf("is an unknown number of hops away");
 					}
-					if ((u->meshcore_flags & MESHCORE_CONTACT_FLAG_FAVORITE) != 0) {
+					if (u->isFavorite()) {
 						str += " and on your favorites list";
 					}
 					parms.push_back(str);
@@ -769,8 +769,8 @@ void Client::welcomeUser() {
 		config.irc.server_hostname,
 		MQTT_IRC_VERSION,
 		"i",
-		"ostv",
-		"ov",
+		"oqstv",
+		"oqv",
 	};
 	SendServerReply(RPL_MYINFO, parms);
 
@@ -779,6 +779,7 @@ void Client::welcomeUser() {
 		"NICKLEN=30",
 		"CHANNELLEN=32",
 		"CHANTYPES=#",
+		"PREFIX=(qov)~@+",
 		"are supported by this server"
 	};
 	SendServerReply(RPL_ISUPPORT, parms);

@@ -81,6 +81,9 @@ void MeshCoreChannel::addUserToChannel(shared_ptr<MeshCoreUser>& u) {
 		auto urec = make_shared<MeshCoreChannelUser>(u);
 		users.push_back(urec);
 		SendJoinNoticesFor(u.get(), irc_name);
+		if (u->isFavorite()) {
+			SendUserModeNoticesFor(irc_name, "+o", u->irc_nick);
+		}
 	}
 }
 
@@ -135,7 +138,7 @@ void MeshCoreChannel::sendPostJoinNotices(Client* c) {
 	*/
 
 	sendNamesTo(c);
-	SendUserModeNoticesFor(irc_name, "+o", config.self_user->irc_nick);
+	SendUserModeNoticesFor(irc_name, "+q", config.self_user->irc_nick);
 }
 
 void MeshCoreChannel::sendNamesTo(Client* c) {
@@ -145,6 +148,8 @@ void MeshCoreChannel::sendNamesTo(Client* c) {
 			line += " ";
 		}
 		if (u->user->isOurNode()) {
+			line += "~";
+		} else if (u->user->isFavorite()) {
 			line += "@";
 		} else if (u->has_voice) {
 			line += "+";

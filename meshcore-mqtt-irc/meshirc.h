@@ -37,6 +37,8 @@ struct ci_less {
 
 class Client;
 
+#define MESHCORE_CONTACT_FLAG_FAVORITE 0x01
+
 class MeshCoreUser {
 private:
 	char _meshcore_nick[MESHCORE_MAX_NICK_LEN+1]; 
@@ -64,6 +66,9 @@ public:
 	const string& hostmask = _hostmask;
 
 	const bool& is_away = _is_away;
+	bool isFavorite() const {
+		return ((meshcore_flags & MESHCORE_CONTACT_FLAG_FAVORITE) != 0);
+	}
 
 	const int64 time_added = time(NULL);
 	const int64& last_seen = _last_seen;
@@ -355,8 +360,6 @@ void mosquitto_loop();
 void add_channel(int channel_idx, const string& meshcore_name, bool is_private);
 bool get_channel_by_meshcore_index(int channel_idx, shared_ptr<MeshCoreChannel>& chan);
 bool get_channel_by_irc_name(const string& channel_name, shared_ptr<MeshCoreChannel>& chan);
-
-#define MESHCORE_CONTACT_FLAG_FAVORITE 0x01
 
 bool get_user_by_meshcore_name(const string& name, shared_ptr<MeshCoreUser>& u);
 bool get_user_by_irc_nick(const string& irc_nick, shared_ptr<MeshCoreUser>& u);
