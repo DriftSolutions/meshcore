@@ -268,6 +268,7 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 	if (current_command) {
 		bool is_expected = (current_command->expected_responses.find(packet_type) != current_command->expected_responses.end());
 		if (is_expected) {
+			current_command->onRecvExpected();
 			mesh_log("Received response %s for current command %s\n", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());
 		} else {
 			mqtt_error("Received unexpected %s for current command %s", GetMeshCoreResponseString(packet_type).c_str(), GetMeshCoreCommandString(current_command->getType()).c_str());

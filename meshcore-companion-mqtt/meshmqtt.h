@@ -67,6 +67,7 @@ public:
 
 	virtual int Read(uint8* buf, int buflen) = 0;
 	virtual int Write(const uint8* buf, int buflen) = 0;
+	virtual bool Reboot() = 0;
 };
 
 class IO_Driver_Serial : public IO_Driver {
@@ -89,6 +90,7 @@ public:
 
 	int Read(uint8* buf, int buflen);
 	int Write(const uint8* buf, int buflen);
+	bool Reboot(); // pulse DTR to trigger hardware reset
 };
 
 class MeshCoreContact {
@@ -167,6 +169,8 @@ public:
 	uint64 time_limit = 0;
 
 	virtual void onError(uint8 code) {} // called when an ERROR response is received
+	virtual void onTimeOut() {}
+	virtual void onRecvExpected() {}
 
 	virtual bool expectsAck();
 
@@ -178,11 +182,17 @@ public:
 	uint8 attempt = 0;
 	uint32 expected_tag = 0;
 
-	virtual void onAck() {};
-	virtual void onTimeOut() {};
-	virtual void onSent(uint32 tag) {};
+	virtual void onAck() {}
+	virtual void onTimeOut() {}
+	virtual void onSent(uint32 tag) {}
 
 	virtual ~MeshCoreCommandAcknowledged() = 0; // Pure virtual destructor
+};
+
+class MeshCoreCommandStart : public MeshCoreCommand {
+public:
+	virtual void onTimeOut();
+	virtual void onRecvExpected();
 };
 
 class MeshCoreCommandStdRetry : public MeshCoreCommandAcknowledged {
@@ -214,6 +224,7 @@ public:
 	bool shutdown_now = false;
 
 	shared_ptr<IO_Driver> io_driver;
+	bool last_start_was_timeout = false;
 	queue<shared_ptr<MQTT_Command>> incoming_commands;
 
 	struct {
@@ -263,7 +274,7 @@ struct MESHCORE_STATE {
 	DSL_BUFFER recvbuf = { 0 }; // I/O receive buffer
 	DSL_BUFFER sendbuf = { 0 }; // I/O send buffer	
 
-	int64 lastNoMoreMessages = 0;
+	int64 lastNoMoreMessages = time(NULL);
 	int64 lastContactsFullUpdate = 0;
 	int64 lastContactsPartialUpdate = 0;
 	uint32 lastContactModTime = 0;
@@ -278,7 +289,8 @@ struct MESHCORE_STATE {
 	map<int, shared_ptr<MeshCoreChannel>> chans;
 
 	void reset() {
-		lastNoMoreMessages = lastContactsPartialUpdate = lastContactsFullUpdate = 0;
+		lastNoMoreMessages = time(NULL);
+		lastContactsPartialUpdate = lastContactsFullUpdate = 0;
 		lastContactModTime = 0;
 		haveSentContactsList = false;
 

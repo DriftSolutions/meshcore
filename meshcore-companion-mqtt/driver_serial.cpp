@@ -151,6 +151,12 @@ bool IO_Driver_Serial::Open(const string& devname) {
         return false;
     }
 
+    if (config.last_start_was_timeout) {
+        Reboot();
+        mqtt_error("Waiting 20 seconds for reboot...");
+        safe_sleep(20);
+    }
+
     return true;
 }
 
@@ -192,6 +198,17 @@ int IO_Driver_Serial::Write(const uint8* buf, int buflen) {
     return (int)bread;
 }
 
+bool IO_Driver_Serial::Reboot() {
+    if (hPort == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    printf("Pulsing DTR to trigger hardware reset...\n");
+    EscapeCommFunction(hPort, CLRDTR);
+    Sleep(200);
+    EscapeCommFunction(hPort, SETDTR);
+    return true;
+}
+
 #else
 // Linux driver
 #include <termios.h>
@@ -199,6 +216,7 @@ int IO_Driver_Serial::Write(const uint8* buf, int buflen) {
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 bool IO_Driver_Serial::Open(const string& device) {
     Close();
@@ -249,6 +267,12 @@ bool IO_Driver_Serial::Open(const string& device) {
         return false;
     }
 
+    if (config.last_start_was_timeout) {
+        Reboot();
+        mqtt_error("Waiting 20 seconds for reboot...");
+        safe_sleep(20);
+    }
+
     return true;
 }
 
@@ -278,6 +302,18 @@ int IO_Driver_Serial::Write(const uint8* buf, int buflen) {
     }
 
     return write(fd, buf, buflen);
+}
+
+bool IO_Driver_Serial::Reboot() {
+    if (fd == -1) {
+        return false;
+    }
+    printf("Pulsing DTR to trigger hardware reset...\n");
+    int flags = TIOCM_DTR;
+    ioctl(fd, TIOCMBIC, &flags); // lower DTR
+    usleep(200000);              // hold low for 200ms
+    ioctl(fd, TIOCMBIS, &flags); // raise DTR
+    return true;
 }
 
 #endif

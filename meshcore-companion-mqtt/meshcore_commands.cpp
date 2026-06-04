@@ -6,7 +6,7 @@
 #include "meshmqtt.h"
 
 void queue_packet_app_start() {
-	auto pack = make_shared<MeshCoreCommand>();
+	auto pack = make_shared<MeshCoreCommandStart>();
 	_PACKET_APP_START p;
 	pack->data.assign((char*)&p, sizeof(p));
 	pack->data.append("meshcore-companion-mqtt");

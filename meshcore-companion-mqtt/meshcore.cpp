@@ -64,16 +64,20 @@ void timeout_outgoing_messages() {
 	uint64 ticks = GetTickCount64();
 	for (auto x = outgoing_messages.begin(); x != outgoing_messages.end();) {
 		if (ticks > x->second->time_limit) {
-			auto dm = dynamic_cast<MeshCoreCommandAcknowledged*>(x->second.get());
-			if (dm != NULL) {
-				dm->onTimeOut();
-			}
+			x->second->onTimeOut();
 			x = outgoing_messages.erase(x);
 		} else {
 			x++;
 		}
 	}
 }
+
+void MeshCoreCommandStart::onTimeOut() {
+	config.last_start_was_timeout = true;
+}
+void MeshCoreCommandStart::onRecvExpected() {
+	config.last_start_was_timeout = false;
+};
 
 inline void handle_outgoing_commands() {
 	// Time out the current going command if one is in progress and we've waited too long for a reply.
@@ -115,7 +119,7 @@ inline void handle_outgoing_commands() {
 				current_outgoing_command.reset();
 			}
 
-			cur->time_limit = GetTickCount64() + 5000;
+			cur->time_limit = GetTickCount64() + (cur->getType() == CMD_SEND_STATUS_REQ) ? 10000 : 5000;
 			buffer_append_int<uint8>(&state.sendbuf, COMPANION_OUTGOING_FRAME_START);
 			uint16 tmp = Get_ULE16((uint16)cur->data.length());
 			buffer_append_int<uint16>(&state.sendbuf, tmp);
@@ -153,6 +157,7 @@ void meshcore_work() {
 		// Check for messages if we haven't received a RESPONSE_CODE_NO_MORE_MSGS in the last minute, just in case.
 		if (state.lastNoMoreMessages > 0 && time(NULL) - state.lastNoMoreMessages >= 60 * 5) {
 			mqtt_error("We've gone too long without a RESPONSE_CODE_NO_MORE_MSGS response, resetting connection...");
+			config.last_start_was_timeout = true;
 			meshcore_close();
 			return;
 		}
