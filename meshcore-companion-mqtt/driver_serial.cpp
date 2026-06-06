@@ -202,10 +202,11 @@ bool IO_Driver_Serial::Reboot() {
     if (hPort == INVALID_HANDLE_VALUE) {
         return false;
     }
-    printf("Pulsing DTR to trigger hardware reset...\n");
-    EscapeCommFunction(hPort, CLRDTR);
-    Sleep(200);
-    EscapeCommFunction(hPort, SETDTR);
+    printf("Pulsing RTS to trigger hardware reset...\n");
+    EscapeCommFunction(hPort, CLRDTR);  // DTR low = GPIO0 high = normal boot mode
+    EscapeCommFunction(hPort, SETRTS);  // RTS high -> transistor pulls EN low -> reset
+    Sleep(100);
+    EscapeCommFunction(hPort, CLRRTS);  // RTS low -> EN returns high -> device boots
     return true;
 }
 
@@ -308,11 +309,13 @@ bool IO_Driver_Serial::Reboot() {
     if (fd == -1) {
         return false;
     }
+
     printf("Pulsing DTR to trigger hardware reset...\n");
     int flags = TIOCM_DTR;
     ioctl(fd, TIOCMBIC, &flags); // lower DTR
     usleep(200000);              // hold low for 200ms
     ioctl(fd, TIOCMBIS, &flags); // raise DTR
+
     return true;
 }
 

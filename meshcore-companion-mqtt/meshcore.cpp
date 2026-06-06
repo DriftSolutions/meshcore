@@ -73,20 +73,38 @@ void timeout_outgoing_messages() {
 }
 
 void MeshCoreCommandStart::onTimeOut() {
+	printf("Timeout while waiting for reply to CMD_APP_START!\n");
 	config.last_start_was_timeout = true;
+	meshcore_close();
 }
 void MeshCoreCommandStart::onRecvExpected() {
 	config.last_start_was_timeout = false;
 };
+
+uint64 get_timeout_for_command(MESHCORE_COMMAND_CODES type) {
+	switch (type) {
+		case CMD_SEND_STATUS_REQ:
+			return 10000;
+		case CMD_APP_START:
+			return 10000;
+		default:
+			return 5000;
+	}
+}
 
 inline void handle_outgoing_commands() {
 	// Time out the current going command if one is in progress and we've waited too long for a reply.
 	if (current_outgoing_command) {
 		auto& cur = current_outgoing_command;
 		if (GetTickCount64() > cur->time_limit) {
+			printf("to: %llu > %llu\n", GetTickCount64(), cur->time_limit);
 			//give up on this command :(
 			printf("[meshcore] Outgoing command %s timed out while waiting for a reply!\n", GetMeshCoreCommandString(cur->getType()).c_str());
+			cur->onTimeOut();
 			current_outgoing_command.reset();
+			if (!config.io_driver->IsOpen()) {
+				return;
+			}
 		}
 	}
 
@@ -119,7 +137,8 @@ inline void handle_outgoing_commands() {
 				current_outgoing_command.reset();
 			}
 
-			cur->time_limit = GetTickCount64() + (cur->getType() == CMD_SEND_STATUS_REQ) ? 10000 : 5000;
+			cur->time_limit = GetTickCount64() + get_timeout_for_command(cur->getType());
+			
 			buffer_append_int<uint8>(&state.sendbuf, COMPANION_OUTGOING_FRAME_START);
 			uint16 tmp = Get_ULE16((uint16)cur->data.length());
 			buffer_append_int<uint16>(&state.sendbuf, tmp);

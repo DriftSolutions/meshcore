@@ -361,6 +361,7 @@ void queue_swap_channels(uint8 channel_idx_1, uint8 channel_idx_2);
 void queue_packet_channel_datagram(uint8 channel_idx, uint16 data_type, const uint8 * data, size_t data_length);
 void queue_packet_send_direct_datagram(const string& pubkey_or_prefix, const uint8* data, size_t data_length);
 void queue_packet_add_or_update_contact(const _PACKET_CONTACT_BASE& newc);
+uint64 get_timeout_for_command(MESHCORE_COMMAND_CODES type);
 string escape_nulls(const uint8* data, size_t data_length);
 void unescape_nulls(uint8* data, size_t& data_length);
 
