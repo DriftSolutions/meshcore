@@ -313,7 +313,7 @@ void handle_incoming_packet(uint8* pack, uint16 packlen) {
 				auto dm = dynamic_cast<MeshCoreCommandAcknowledged*>(current_command.get());
 				if (dm != NULL) {
 					dm->expected_tag = tag;
-					dm->time_limit = GetTickCount64() + get_timeout_for_command(dm->getType());
+					dm->time_limit = GetTickCount64() + get_timeout_for_command(dm->getType(), timeo);
 					outgoing_messages[tag] = current_command;
 					current_command.reset();
 				}

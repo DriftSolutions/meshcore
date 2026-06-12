@@ -533,19 +533,17 @@ bool Client::handleIncomingConnected(char* cmd, char* parms[], int nparms) {
 			shared_ptr<MeshCoreChannel> c;
 			if (get_channel_by_irc_name(parms[0], c)) {
 				if (nparms > 1) {
-					//trying to set the topic
-					vector<string> parms = {
+					c->updateTopic(parms[1], config.self_user->irc_nick, time(NULL));
+					vector<string> tparms = {
+						":" + user->hostmask,
+						"TOPIC",
 						c->irc_name,
-						"You're not channel operator"
+						parms[1]
 					};
-					SendServerReply(ERR_CHANOPRIVSNEEDED, parms);
+					SendLineToAllAuthenticatedClients(tparms);
 				} else {
 					//just wanting to know what the topic is
-					vector<string> parms = {
-						c->irc_name,
-						"No topic is set"
-					};
-					SendServerReply(RPL_NOTOPIC, { parms });
+					c->sendTopic(this);
 				}
 			} else {
 				printf("[irc] Got TOPIC request for unknown channel %s\n", parms[0]);

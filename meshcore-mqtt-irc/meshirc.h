@@ -151,6 +151,11 @@ public:
 		return false;
 	}
 
+	struct {
+		string topic;
+		string set_by;
+		int64 timestamp = 0;
+	} topic;
 
 	void addUserToChannel(shared_ptr<MeshCoreUser>& user);
 	void partUserFromChannel(shared_ptr<MeshCoreUser>& user, bool send_part_notices, bool remove_from_user_list);
@@ -168,6 +173,8 @@ public:
 		return ret;
 	}
 
+	void updateTopic(const string& topic, const string& set_by, int64 ts = 0);
+	void sendTopic(Client* c);
 
 	void handleIdleUsers();
 	bool hasSpokenRecently(const string& irc_nick);
@@ -360,6 +367,8 @@ void mosquitto_loop();
 void add_channel(int channel_idx, const string& meshcore_name, bool is_private);
 bool get_channel_by_meshcore_index(int channel_idx, shared_ptr<MeshCoreChannel>& chan);
 bool get_channel_by_irc_name(const string& channel_name, shared_ptr<MeshCoreChannel>& chan);
+bool SetChannelSetting(const string& chan, const string& name, const string& value);
+string GetChannelSetting(const string& chan, const string& name, const string& sDefault);
 
 bool get_user_by_meshcore_name(const string& name, shared_ptr<MeshCoreUser>& u);
 bool get_user_by_irc_nick(const string& irc_nick, shared_ptr<MeshCoreUser>& u);

@@ -152,6 +152,7 @@ bool MeshCoreUser::hadRecentAction() {
 
 void MeshCoreUser::onAction() {
 	_last_action_time = _last_seen = time(NULL);
+
 	if (is_away) {
 		_is_away = false;
 
@@ -182,11 +183,3 @@ void MeshCoreUser::markAway() {
 		}
 	}
 }
-
-/*
-void remove_user(shared_ptr<MeshCoreUser> u) {
-}
-
-void remove_old_users() {
-}
-*/

@@ -92,3 +92,26 @@ void SendOfflineMessages(Client* cli) {
 
 	cli->SendServerNotice("Replay complete.");
 }
+
+bool SetChannelSetting(const string& chan, const string& name, const string& value) {
+	SC_Row row;
+	row.Values["Channel"] = chan;
+	row.Values["Name"] = name;
+	row.Values["Value"] = value;
+	return db->Replace("ChannelSettings", row);
+}
+
+string GetChannelSetting(const string& chan, const string& name, const string& sDefault) {
+	auto res = db->Query(db->MPrintf("SELECT Value FROM ChannelSettings WHERE Channel=%Q AND Name=%Q LIMIT 1", chan.c_str(), name.c_str()));
+	if (res != NULL) {
+		SC_Row row;
+		if (db->FetchRow(res, row)) {
+			db->FreeResult(res);
+			return row.Get("Value", sDefault);
+		}
+		db->FreeResult(res);
+	}
+
+	return sDefault;
+}
+

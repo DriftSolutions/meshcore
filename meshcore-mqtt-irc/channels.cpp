@@ -48,6 +48,9 @@ void add_channel(int idx, const string& meshcore_name, bool is_private) {
 	c->meshcore_index = idx;
 	c->setNameFromMeshCore(meshcore_name);
 	c->is_private = is_private;
+	c->topic.topic = GetChannelSetting(c->irc_name, "topic", "");
+	c->topic.set_by = GetChannelSetting(c->irc_name, "topic_set_by", "");
+	c->topic.timestamp = max((int64)0, (int64)atoi64(GetChannelSetting(c->irc_name, "topic_ts", "").c_str()));
 	chans[idx] = c;
 
 	printf("[irc] Added channel %d: %s -> %s\n", idx, c->meshcore_name, c->irc_name);
@@ -102,6 +105,16 @@ void MeshCoreChannel::partUserFromChannel(shared_ptr<MeshCoreUser>& user, bool s
 	}
 }
 
+void MeshCoreChannel::updateTopic(const string& stopic, const string& set_by, int64 ts) {
+	topic.topic = stopic;
+	topic.set_by = set_by;
+	topic.timestamp = (ts > 0) ? ts : time(NULL);
+
+	SetChannelSetting(irc_name, "topic", stopic);
+	SetChannelSetting(irc_name, "topic_set_by", set_by);
+	SetChannelSetting(irc_name, "topic_ts", mprintf("%lld", topic.timestamp).c_str());
+}
+
 void MeshCoreChannel::handleIdleUsers() {
 	for (auto x = users.begin(); x != users.end();) {
 		auto u = *x;
@@ -125,12 +138,7 @@ void MeshCoreChannel::handleIdleUsers() {
 }
 
 void MeshCoreChannel::sendPostJoinNotices(Client* c) {
-	vector<string> parms = {
-		irc_name,
-		"No topic is set"
-	};
-	c->SendServerReply(RPL_NOTOPIC, { parms });
-
+	sendTopic(c);
 	/*
 	if (config.irc.auto_voice_idle_users && hasSpokenRecently(config.self_user->irc_nick)) {
 		SendUserModeNoticesFor(irc_name, "+v", config.self_user->irc_nick);
@@ -139,6 +147,29 @@ void MeshCoreChannel::sendPostJoinNotices(Client* c) {
 
 	sendNamesTo(c);
 	SendUserModeNoticesFor(irc_name, "+q", config.self_user->irc_nick);
+}
+
+void MeshCoreChannel::sendTopic(Client* c) {
+	if (topic.topic.empty()) {
+		vector<string> parms = {
+			irc_name,
+			"No topic is set"
+		};
+		c->SendServerReply(RPL_NOTOPIC, { parms });
+	} else {
+		vector<string> parms = {
+			irc_name,
+			topic.topic
+		};
+		c->SendServerReply(RPL_TOPIC, { parms });
+
+		parms = {
+			irc_name,
+			topic.set_by,
+			mprintf("%lld", topic.timestamp)
+		};
+		c->SendServerReply(RPL_TOPICWHOTIME, { parms });
+	}
 }
 
 void MeshCoreChannel::sendNamesTo(Client* c) {

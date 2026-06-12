@@ -81,15 +81,15 @@ void MeshCoreCommandStart::onRecvExpected() {
 	config.last_start_was_timeout = false;
 };
 
-uint64 get_timeout_for_command(MESHCORE_COMMAND_CODES type) {
+uint64 get_timeout_for_command(MESHCORE_COMMAND_CODES type, uint64 suggested) {
+	uint64 ret = 5000;
 	switch (type) {
 		case CMD_SEND_STATUS_REQ:
-			return 10000;
+			ret = 10000;
 		case CMD_APP_START:
-			return 10000;
-		default:
-			return 5000;
+			ret = 10000;
 	}
+	return max(ret, suggested);
 }
 
 inline void handle_outgoing_commands() {
